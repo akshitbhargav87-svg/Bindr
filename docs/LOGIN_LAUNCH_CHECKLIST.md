@@ -33,7 +33,7 @@ gcloud config set project "$PROJECT_ID"
 gcloud services enable identitytoolkit.googleapis.com firebase.googleapis.com
 ```
 
-If `Bindr-login-release` already exists, use another fresh directory name; do not overwrite an existing checkout. Authorize Cloud Shell with your own account if Google asks. For this revision, the commit begins `de79f28`; if the branch has advanced, confirm the intended revision with Tushar.
+If `Bindr-login-release` already exists, use another fresh directory name; do not overwrite an existing checkout. Authorize Cloud Shell with your own account if Google asks. The login/UI implementation is revision `de79f28`; later documentation commits appear above it. Use the current reviewed `codex/account-auth` head shown in PR #4.
 
 Replace `PASTE_FIREBASE_WEB_APP_ID_HERE` with the App ID copied in A5, then run:
 
