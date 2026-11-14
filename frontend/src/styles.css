@@ -29,6 +29,7 @@
 * {box-sizing: border-box;}
 :root {font-family: var(--font-sans); color: var(--color-ink); background: var(--color-paper); font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;}
 html {scroll-behavior: smooth; scroll-padding-top: 96px;}
+@media(prefers-reduced-motion:reduce){html {scroll-behavior:auto;}}
 body {margin: 0; font-size: 16px; line-height: 1.5;}
 button, input, textarea, select {font: inherit;}
 button, a, summary {-webkit-tap-highlight-color: transparent;}

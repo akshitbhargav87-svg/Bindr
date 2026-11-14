@@ -1,59 +1,74 @@
 # Bindr frontend
 
-Phase 5 is implemented: each unresolved case can prepare a complaint from its reviewed record, edit the text, preview, review the export, and copy/download UTF-8 text. `/app/drafts` keeps explicitly saved versions in this tab only. Generation failures preserve selections and offer a local factual template. Exports recheck the case version and require confirmation. See PHASE-5-HANDOVER.md for review steps and backend limits. Earlier phase sections below are historical where superseded; Phase 6 has not started.
+The frontend implements the landing, workspace, capture/review, source-linked case timeline, outcomes, complaint drafting, agenda, activity and settings. It uses one Nunito/Inter design system with #3D4DD6, white/cool-grey surfaces, 1px borders and no shadows.
 
-Phase 4 is implemented: case detail and preserved revision timeline, original-evidence viewer/library, case communication review, outcomes and local lifecycle actions. Start at `/app/cases` or open `/app/evidence`; archived records are at `/app/archived`. Full resolution, source downloads and revision reviews use the supplied HTTP contract. Extended outcomes and case management remain mock-only. See PHASE-4-HANDOVER.md for review steps, validation and limitations. Phase 5 has not started.
+Default mode is a deterministic local demo. Supported HTTP flows are wired and transport-tested; testing against the real backend is pending because localhost:8000 was unavailable. Read INTEGRATION-HANDOVER.md and GAPS.md before switching modes. Historical per-phase handovers document earlier checkpoints; PHASE-6-7-HANDOVER.md is the current completion record.
 
-Phase 3: `/app/upload` accepts source files or pasted messages; `/app/review` opens editable, source-linked fields with explicit confirmation. Default mock extraction reads text locally; screenshots/PDFs support preview and manual entry, without OCR. New records and their original files remain in this tab until reload. See PHASE-3-HANDOVER.md for that phase's review steps and integration gaps; the Phase 4 notes above supersede its remaining-scope list.
+## Run in Command Prompt
 
-Current focused checks: `node --test checks/workspace.test.mjs checks/capture.test.mjs checks/case.test.mjs checks/complaint.test.mjs`.
+From a fresh Command Prompt:
 
-Phase 2 is now implemented: `/app` opens the introduction/overview and `/app/cases` opens searchable, filterable cases. Choose **Explore sample cases** on first visit, or use the **Demo workspace** menu to review empty/offline/error states. The app uses the same Nunito/Inter typography and foundation tokens as the revised landing. See PHASE-2-HANDOVER.md for routes, validation and remaining scope. Existing Phase 1 notes below are historical where superseded.
-
-Optional focused logic checks: `node --test checks/workspace.test.mjs`.
-
-The landing page has been revised to the approved consumer SVG direction: rounded self-hosted Nunito headings, larger body/product text, source-linked message artwork, licensed illustrative photography, labelled company examples and reduced-motion-aware animations. See LANDING-REVISION-HANDOVER.md for current validation and ASSETS.md for provenance. The earlier Phase 1 handover below is historical; app workflows still arrive in subsequent phases.
-
-Phase 1: React + Vite + TypeScript + Tailwind CSS. Inter and IBM Plex Mono are served locally through @fontsource. Lucide supplies interface icons. React Router owns public `/` and reserved `/app/*` routes.
-
-## Run locally (PowerShell)
-
-```powershell
-cd "C:\Users\Test\OneDrive\Documents\ChatGPT\PromiseKeeper - VIHAANX\bindr-app\frontend"
-npm install
+```cmd
+cd /d "C:\Users\Test\OneDrive\Documents\ChatGPT\PromiseKeeper - VIHAANX\bindr-app\frontend"
 npm run dev
 ```
 
-Open http://localhost:5173. No `.env` file is required for the default synthetic demo. Copy `.env.example` to `.env.local` to override public settings. `VITE_USE_MOCK=false` selects the HTTP adapter; `VITE_API_URL` is the API origin (default http://localhost:8000). The adapter appends /api/v1 unless already present, mapping the shared logical FRONTEND_API_BASE_URL setting.
+Open http://127.0.0.1:5173. This checkout already has dependencies; use npm ci for a fresh installation. No .env is needed for demo mode.
 
-```powershell
+## Routes
+
+| Route | Purpose |
+|---|---|
+| / | Approved marketing landing |
+| /app | Introduction / overview |
+| /app/cases | Searchable, filterable cases |
+| /app/cases/:caseId | Case, preserved promise history and original evidence |
+| /app/cases/:caseId/update | Match a communication, review a new/revised promise, or retain evidence |
+| /app/upload; /app/review | Capture and explicit confirmation |
+| /app/evidence | Searchable original-evidence index and viewer |
+| /app/cases/:caseId/complaint | Facts → Draft → Review → Export |
+| /app/drafts | Tab-local saved complaints |
+| /app/agenda; /app/activity | Deadline agenda and local activity/read markers |
+| /app/settings; /app/help | Calendar assumptions, real in-app preferences and guidance |
+| /app/archived | Mock archive/restore view |
+
+Desktop sidebar and written four-tab mobile navigation share the same pages. Mobile secondary links expose Deadlines, Activity and Drafts. User visual/device review remains necessary; route response checks do not certify rendering.
+
+## Commands
+
+```cmd
 npm run typecheck
+npm run check
 npm run build
+npm run build:http
 ```
 
-## Phase 1 delivery
+check runs 55 focused tests, including a temporary loopback HTTP contract server that closes afterward. build outputs the default demo to dist. build:http forces VITE_USE_MOCK=false and outputs to dist-http, leaving the demo configuration/output alone. Both generated folders are ignored. No dependencies were added in Phases 2–7.
 
-- Responsive marketing landing, approved headline and brand colors.
-- Original SVG document-record illustration and vector rendering of the supplied Bindr logo.
-- Interactive synthetic product preview: choose original/revised promise to inspect the linked source quotation.
-- Three illustrated workflow steps, record principles, factual control/privacy section, keyboard-native FAQ, and working Contact/Privacy/Terms dialogs.
-- Mobile navigation, reduced motion, visible keyboard focus, skip link, labelled dialogs and semantic page regions.
-- Reusable button, input, alert, status and branding components.
-- Exact contract types, HTTP adapter, synthetic read adapter and single mapping boundary. Components do not import fixtures.
-- `/app/*` displays an explicit build checkpoint until subsequent phases. No real upload, AI, persistence or draft generation is implemented in this phase.
+## Demo and connected data
 
-Logo geometry is a vector redraw of the user's supplied mark, normalized to the approved #3D4DD6. Custom artwork is native SVG; no stock photography, external image runtime or AI-image dependency. Research screenshots and archives were not copied into this repository.
+Demo cases, originals, outcomes and annotations live in memory until reload. The fixed reference date is 14 Nov 2026 in the mock adapter only. Screenshot/PDF originals can be viewed/kept and entered manually; local extraction reads UTF-8 text, not OCR. The Demo workspace menu identifies fixtures and exposes empty/offline/error states.
 
-## Render Static Site
+Capture and complaint state survive workspace/public navigation within this app session. Saved complaints are explicit copies for this tab only. Reload warnings protect local work. Only introduction/demo-view preferences and two in-app preference booleans use localStorage; original files, document content and activity read-marker IDs do not.
 
-Root directory: `frontend`; build command: `npm ci && npm run build`; publish directory: `dist`. `public/_redirects` is copied into dist. In Render's dashboard also configure a **Rewrite** with source `/*`, destination `/index.html`, action Rewrite, to ensure BrowserRouter deep links work (Render does not rely on a Netlify-style redirects file). Configure only public VITE variables here. Backend/AI credentials stay server-side. Deployment was not performed.
+HTTP uses VITE_USE_MOCK=false and public VITE_API_URL (default http://localhost:8000; /api/v1 is appended unless already supplied). VITE_API_URL maps the shared logical FRONTEND_API_BASE_URL setting and may also be /api/v1 for same-origin hosting. Backend session bootstrap, cookie credentials, CSRF and exact CORS origin must be supplied by the backend owner. Match browser/API hostnames. No backend or AI secrets belong in frontend variables.
 
-## Contract provenance / next phases
+HTTP supports UTF-8 text/text-layer PDF, create/read/upload/extract/review/revision/full resolution/complaint preview/original download. Unsupported features remain isolated local extensions or are blocked; see GAPS.md. HTTP errors never fall back to sample data, and POST requests are never automatically retried.
 
-The downloaded main branch only had a README. Sibling docs/ reference files were downloaded byte-for-byte through the GitHub connector from `feature/integration` @ `70f2db0b16c06160a176155c7faa19e555c371ce`; they are not edited contracts or changes intended for a frontend commit. Original remote files still use the previous product name; the new UI/code uses Bindr.
+Complaint export is reviewed plain text: clipboard or local UTF-8 .txt, optional history and filename index. No PDF, bundled originals, automatic filing, external notifications or background scheduler is included.
 
-Read PLAN.md and GAPS.md. Keep commits limited to frontend/. User reviews visuals; no browser screenshot loops are run.
+## Integration and hosting
 
-Suggested commit: `feat(frontend): build Bindr foundation and evidence-led landing page`
+INTEGRATION-HANDOVER.md gives exact commands for a second connected frontend on port 5174, backend prerequisites, tested transport boundaries and the pending real-server verification path. No backend code, shared contracts or root configuration was modified.
 
-Manual staging command (not executed): `git add frontend/`
+Render Static Site: root frontend, build npm ci && npm run build, publish dist. Set public variables before building. Configure an explicit Rewrite from /* to /index.html for BrowserRouter deep links. public/_redirects is included but does not replace Render's dashboard rewrite. No deployment was performed.
+
+## Ownership and manual commit
+
+All implementation changes are inside frontend/. Reference docs/ stays untracked/read-only. Research screenshots remain outside the repo; ASSETS.md records existing landing asset provenance. The assistant performs no Git writes.
+
+Suggested final commit: feat(frontend): finish agenda preferences and API integration checks
+
+Exact staging command from the repository root: git add -- frontend/
+
+See PHASE-6-7-HANDOVER.md for the complete fresh-CMD commit/push/verification sequence. Copy command lines only, without Markdown formatting markers.
