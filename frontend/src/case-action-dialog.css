@@ -1,0 +1,38 @@
+/* Lifecycle dialogs use the shared Bindr type and foundation tokens. */
+.case-action-dialog {padding:0;border:1px solid var(--color-line);border-radius:8px;background:var(--color-paper);color:var(--color-ink);width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 48px);margin:auto;overflow:auto;box-shadow:none;font:400 var(--text-ui-body)/26px var(--font-sans);}
+.case-action-dialog::backdrop {background:rgb(23 43 77 / .3);}
+.case-action-dialog form {margin:0;}
+.case-action-header {display:flex;gap:16px;align-items:flex-start;justify-content:space-between;padding:24px;border-bottom:1px solid var(--color-line);}
+.case-action-header > div {display:flex;align-items:center;gap:12px;min-width:0;}
+.case-action-header > div > svg {color:var(--color-indigo);}
+.case-action-header h2 {font-family:var(--font-display);font-size:28px;line-height:36px;font-weight:800;letter-spacing:-.5px;}
+.case-action-close {min-width:48px;min-height:48px;display:grid;place-items:center;color:var(--color-muted);border-radius:6px;margin:-6px -8px -6px 0;}
+.case-action-close:hover:not(:disabled) {color:var(--color-ink);background:var(--color-canvas);}
+.case-action-body {padding:24px;display:flex;flex-direction:column;gap:24px;}
+.case-action-description {color:var(--color-muted);font-size:var(--text-ui-body);line-height:26px;}
+.case-action-dialog fieldset {margin:0;padding:0;border:0;min-width:0;}
+.case-action-fields {display:flex;flex-direction:column;gap:24px;}
+.case-action-label {display:flex;flex-direction:column;gap:8px;font-size:var(--text-ui-body);font-weight:500;line-height:24px;}
+.case-action-label input,.case-action-label textarea {width:100%;min-height:48px;border:1px solid var(--color-line);border-radius:8px;padding:11px 12px;background:var(--color-paper);color:var(--color-ink);font:400 var(--text-ui-body)/24px var(--font-sans);}
+.case-action-label textarea {resize:vertical;min-height:96px;}
+.case-action-label input[aria-invalid='true'],.case-action-label textarea[aria-invalid='true'] {border-color:var(--color-overdue);}
+.case-action-id {font:400 var(--text-ui-meta)/24px var(--font-mono);overflow-wrap:anywhere;user-select:all;color:var(--color-muted);background:var(--color-canvas);border:1px solid var(--color-line);border-radius:6px;padding:12px;}
+.case-action-confirm {display:flex;align-items:flex-start;gap:12px;font-size:var(--text-ui-meta);line-height:24px;cursor:pointer;}
+.case-action-confirm input {width:18px;height:18px;flex-shrink:0;margin:3px 0 0;accent-color:var(--color-indigo);}
+.case-action-error {font-size:var(--text-ui-meta);line-height:22px;color:var(--color-overdue);font-weight:400;}
+.case-action-danger-note,.case-action-save-error {display:flex;align-items:flex-start;gap:12px;padding:16px;color:var(--color-overdue);background:var(--color-overdue-bg);border:1px solid #f3d1ce;border-radius:6px;font-size:var(--text-ui-meta);line-height:24px;}
+.case-action-danger-note > svg,.case-action-save-error > svg {margin-top:2px;}
+.case-action-save-error strong {font-weight:500;}.case-action-save-error p {margin-top:4px;}
+.case-action-save-error .button {margin-top:12px;}
+.case-action-footer {display:flex;justify-content:flex-end;align-items:center;gap:12px;border-top:1px solid var(--color-line);padding:20px 24px;background:var(--color-paper);}
+.case-action-dialog .button {min-height:48px;font-size:var(--text-ui-meta);}
+.case-action-dialog .case-delete-button {background:var(--color-overdue);border-color:var(--color-overdue);color:var(--color-paper);}
+.case-action-dialog .case-delete-button:hover:not(:disabled) {background:#8f1c13;border-color:#8f1c13;}
+@media (max-width:600px) {
+  .case-action-dialog {width:100%;height:100dvh;max-width:none;max-height:none;margin:0;border:0;border-radius:0;}
+  .case-action-dialog form {min-height:100%;display:flex;flex-direction:column;}
+  .case-action-header {padding:20px 16px;}
+  .case-action-body {padding:24px 16px;flex:1;}
+  .case-action-footer {position:sticky;bottom:0;padding:16px 16px max(16px,env(safe-area-inset-bottom));flex-wrap:wrap;}
+  .case-action-footer .button-primary {flex:1;}
+}
