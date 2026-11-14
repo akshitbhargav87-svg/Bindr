@@ -1,0 +1,3 @@
+# Shared Docker/CI runtime, including private Google Cloud Storage support.
+-r requirements-render.txt
+google-cloud-storage==3.17.1

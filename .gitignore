@@ -11,3 +11,4 @@ __pycache__/
 storage/
 *.tsbuildinfo
 .ocr-models/
+*.log

@@ -7,10 +7,12 @@ if database_url.startswith(("postgres://", "postgresql://")):
     database_url = "postgresql+psycopg://" + database_url.split("://", 1)[1]
 
 connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
+pool_options = {"pool_size": 5, "max_overflow": 0} if database_url.startswith("postgresql") else {}
 
 engine = create_engine(
     database_url,
     connect_args=connect_args,
+    **pool_options,
     pool_pre_ping=True,
     echo=False
 )

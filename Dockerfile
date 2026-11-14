@@ -14,7 +14,8 @@ WORKDIR /app
 COPY backend/requirements.txt backend/requirements.txt
 COPY backend/app/ai/requirements-ai.txt backend/app/ai/requirements-ai.txt
 COPY backend/requirements-render.txt backend/requirements-render.txt
-RUN pip install --no-cache-dir -r backend/requirements-render.txt
+COPY backend/requirements-runtime.txt backend/requirements-runtime.txt
+RUN pip install --no-cache-dir -r backend/requirements-runtime.txt
 COPY backend/ backend/
 RUN python -c 'from backend.app.ai.document_processor import warm_ocr_models; warm_ocr_models()'
 COPY --from=frontend /build/frontend/dist/ frontend/dist/

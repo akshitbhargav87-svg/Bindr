@@ -4,7 +4,7 @@
 
 Companies promise refunds, replacements and service fixes across messages and documents. When dates change, the proof gets scattered. Bindr keeps the original evidence, confirmed terms, revisions and outcome in one place.
 
-> Hackathon release: the combined frontend/backend workflow has been tested locally. Render deployment and a live Meta provider call still require final verification. See [release audit](docs/RELEASE_AUDIT.md).
+> Hackathon release: the combined workflow has been tested locally. Google Cloud is the deployment target; live deployment and a real Meta provider call still need verification. See [migration status](docs/GOOGLE_CLOUD_MIGRATION.md) and [release audit](docs/RELEASE_AUDIT.md).
 
 ## Try the story
 
@@ -25,15 +25,15 @@ Example message: **“We will refund INR 4999 for the returned headphones within
 - Responsive React workspace: cases, search, confirmed deadlines, evidence library, activity and case history.
 - FastAPI-backed creation, private evidence upload/download, extraction, human review, revisions, complaint preview and full resolution.
 - Original file hashes, linked quotations, preserved predecessors, ownership checks and stale-write protection.
-- PostgreSQL records and a private persistent evidence disk in the Render configuration. Frontend and API share one HTTPS origin.
+- PostgreSQL records in Cloud SQL and original files in private Cloud Storage. Frontend and API share one Cloud Run HTTPS origin.
 
 ![Bindr technical architecture](docs/images/technical-architecture.png)
 
-*Architecture overview. This release also supports PNG/JPEG OCR. The deployment uses a private Render disk; an S3 implementation is not included.*
+*Architecture overview. PNG/JPEG OCR is supported. Hosting now targets Cloud Run, Cloud SQL and private Cloud Storage; older hosting labels in the diagram describe the original design. An S3 implementation is not included.*
 
 ## How it is built
 
-**React 19 · TypeScript · Vite · FastAPI · SQLAlchemy · PostgreSQL · RapidOCR · Meta Model API · Render**
+**React 19 · TypeScript · Vite · FastAPI · SQLAlchemy · PostgreSQL · RapidOCR · Meta Model API · Google Cloud**
 
 The browser calls `/api/v1` with signed session cookies and CSRF protection. FastAPI validates files and AI output, checks ownership and atomically applies reviewed changes. Provider secrets stay on the server. Complaints are generated from confirmed facts; nothing is automatically sent or filed.
 
@@ -46,7 +46,7 @@ Requires Python 3.12+ and Node.js 22.
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r backend/requirements-render.txt
+pip install -r backend/requirements-runtime.txt
 cd frontend
 npm ci
 VITE_USE_MOCK=false VITE_API_URL=/api/v1 npm run build
@@ -58,11 +58,11 @@ Open **http://127.0.0.1:8000**. Local mode uses SQLite and a clearly labelled of
 
 ## Deploy
 
-[Deploy with the Render Blueprint](https://dashboard.render.com/blueprint/new?repo=https://github.com/akshitbhargav87-svg/Bindr). The versioned [render.yaml](render.yaml) builds one connected app, provisions PostgreSQL, generates a signing secret and attaches private file storage. See [deployment instructions](docs/DEPLOYMENT.md) for the AI key and final checks.
+Follow the [Google Cloud deployment guide](docs/DEPLOYMENT.md): Cloud Run serves the app, Cloud SQL stores records, Cloud Storage keeps private originals and Secret Manager holds credentials. The [deploy script](scripts/deploy-google-cloud.sh) builds and publishes Docker after one-time project setup. The existing AI provider is unchanged. A public URL will be added after live acceptance passes.
 
 ## Scope and limits
 
-This is an anonymous browser workspace: the cookie holds access for up to 30 days on Render. Clearing/losing it loses access; account recovery and cross-device login are not implemented. Use synthetic evidence for judging.
+This is an anonymous browser workspace: the cookie holds access for up to 30 days in the deployment configuration. Clearing/losing it loses access; account recovery and cross-device login are not implemented. Use synthetic evidence for judging.
 
 Full resolution and reviewed revisions persist. Partial receipts, manual-only saving, reopen/archive/delete, persistent complaint drafts, notification delivery and scanned-PDF OCR are outside the connected MVP. Settings affect local presentation; there are no background reminders. Uploads are limited to 10 MiB each, 30 files per case and 50 MiB per workspace; extraction has a basic abuse limit.
 
