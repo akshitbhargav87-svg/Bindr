@@ -52,7 +52,7 @@ class MockAIProvider(AIProvider):
 
         # Handle simulated failure modes for testing error handlers
         if self.simulate_failure == "auth":
-            raise AIAuthenticationError("Simulated Gemini authentication failure: invalid API key.")
+            raise AIAuthenticationError("Simulated Meta authentication failure: invalid API key.")
         elif self.simulate_failure == "connection":
             raise AIConnectionError("Simulated network timeout connecting to AI provider.")
         elif self.simulate_failure == "rate_limit":

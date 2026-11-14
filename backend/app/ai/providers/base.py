@@ -41,7 +41,7 @@ class AIResponseParsingError(AIProviderError):
 class AIProvider(ABC):
     """
     Abstract Base Class for Promise Keeper AI extraction providers.
-    Allows easy switching between Gemini, Anthropic, OpenAI, Meta Muse, or Mock providers.
+    Allows easy switching between Meta Model API, Anthropic, OpenAI, or Mock providers.
     """
 
     @abstractmethod

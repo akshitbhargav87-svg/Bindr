@@ -1,6 +1,6 @@
-# Promise Keeper - AI Extraction Engine (Milestone 1)
+# Promise Keeper - AI Extraction Engine (Milestone 1 - Meta Model API)
 
-This module implements **Milestone 1: Promise Extraction Engine** for Promise Keeper.
+This module implements **Milestone 1: Promise Extraction Engine** for Promise Keeper using the **Meta Model API** (`muse-spark-1.3`).
 
 It converts raw text extracted from company communications (emails, chat screenshots, letters, PDFs) into structured, validated commitment data.
 
@@ -8,7 +8,7 @@ It converts raw text extracted from company communications (emails, chat screens
 
 ## 1. AI Contract Specification (Temporary Contract)
 
-Until `docs/AI_CONTRACT.md` is finalized across teams, this contract defines the interface between `backend/app/ai/` and the backend business logic/routers.
+Until `docs/AI_CONTRACT.md` is shared across teams, this contract defines the interface between `backend/app/ai/` and the backend business logic/routers.
 
 ### 1.1 Input Specification
 
@@ -74,7 +74,7 @@ class DeadlineInfo(BaseModel):
 2. **Distinguish promises from vague estimates**: Vague estimates (`"usually takes 3 days"`) are flagged as `is_vague_estimate=True`, `commitment_type=INFERRED`, and automatically enforce `user_confirmation_required=True`.
 3. **Preserve exact source quotations**: The supporting quotation is verified against the input text. If not verbatim, it is flagged as ambiguous and requires user confirmation.
 4. **No fabricated confidence scores**: Numerical confidence scores (e.g. `0.95`) are intentionally omitted. Qualitative certainty is captured through `commitment_type`, `missing_or_ambiguous_fields`, and `user_confirmation_required`.
-5. **Configurable AI Provider Interface**: Supports `GeminiProvider` (production) and `MockAIProvider` (tests/offline), dynamically selectable via environment variable or dependency injection.
+5. **Configurable AI Provider Interface**: Supports `MetaProvider` (production, Meta Model API) and `MockAIProvider` (tests/offline), dynamically selectable via environment variable or dependency injection.
 6. **Graceful error boundaries**: Handles malformed model outputs and unavailable credentials safely without crashing backend processes.
 
 ---
@@ -90,15 +90,15 @@ backend/app/ai/
 ├── providers/
 │   ├── __init__.py           # Provider exports
 │   ├── base.py               # AIProvider ABC & custom exceptions
-│   ├── gemini.py             # GeminiProvider implementation (REST / API)
+│   ├── meta.py               # MetaProvider implementation (Meta Model API)
 │   ├── mock.py               # MockAIProvider for deterministic testing
 │   └── factory.py            # get_ai_provider resolution factory
 ├── tests/
 │   ├── __init__.py
-│   └── test_extraction.py    # 10 comprehensive unit & synthetic test cases
+│   └── test_extraction.py    # Unit, provider & synthetic test cases
 ├── requirements-ai.txt       # Proposed dependencies for backend owner
 ├── DEPENDENCIES.md           # Documentation for backend owner
-└── README.md                 # This contract and integration guide
+└── README.md                 # Contract and integration guide
 ```
 
 ---

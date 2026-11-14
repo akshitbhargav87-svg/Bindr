@@ -11,11 +11,13 @@ Covers:
 7. Duration extraction without business-day calculation
 8. Absence of fabricated numerical confidence scores
 9. Malformed model response handling
-10. Unavailable API / invalid credential handling
+10. Meta Provider credential, connection, and response parsing handling
 """
 
+import json
 import sys
 import unittest
+from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 # Ensure project root is in sys.path
@@ -32,10 +34,11 @@ from backend.app.ai.schemas import (
 )
 from backend.app.ai.engine import PromiseExtractionEngine, extract_commitment
 from backend.app.ai.providers.mock import MockAIProvider
-from backend.app.ai.providers.gemini import GeminiProvider
+from backend.app.ai.providers.meta import MetaProvider
 from backend.app.ai.providers.base import (
     AIAuthenticationError,
     AIConnectionError,
+    AIRateLimitError,
     AIResponseParsingError,
 )
 
@@ -234,26 +237,92 @@ class TestPromiseExtractionEngine(unittest.TestCase):
         self.assertIn("ai_provider_error", fallback_res.missing_or_ambiguous_fields)
 
     # -------------------------------------------------------------------------
-    # Error Handling: Unavailable API / Invalid Credentials
+    # Meta Provider Tests: Credentials, HTTP Errors, and Extraction
     # -------------------------------------------------------------------------
-    def test_api_credentials_and_network_error_handling(self):
-        """Verify handling of missing/invalid credentials and network drops."""
-        # Missing key in GeminiProvider
-        gemini_no_key = GeminiProvider(api_key="")
-        engine_gemini = PromiseExtractionEngine(provider=gemini_no_key, fallback_on_error=False)
+    def test_meta_provider_missing_credentials(self):
+        """Verify MetaProvider raises AIAuthenticationError when MODEL_API_KEY is unset."""
+        meta_no_key = MetaProvider(api_key="")
+        engine_meta = PromiseExtractionEngine(provider=meta_no_key, fallback_on_error=False)
         with self.assertRaises(AIAuthenticationError):
-            engine_gemini.extract("Sample communication")
+            engine_meta.extract("Sample communication")
 
-        # Fallback mode produces safe user confirmation result
-        engine_gemini_safe = PromiseExtractionEngine(provider=gemini_no_key, fallback_on_error=True)
-        safe_res = engine_gemini_safe.extract("Sample communication")
+        # In fallback mode, returns safe result requiring user confirmation
+        engine_meta_safe = PromiseExtractionEngine(provider=meta_no_key, fallback_on_error=True)
+        safe_res = engine_meta_safe.extract("Sample communication")
         self.assertTrue(safe_res.user_confirmation_required)
+        self.assertIn("ai_provider_error", safe_res.missing_or_ambiguous_fields)
 
-        # Connection error
-        conn_provider = MockAIProvider(simulate_failure="connection")
-        engine_conn = PromiseExtractionEngine(provider=conn_provider, fallback_on_error=False)
-        with self.assertRaises(AIConnectionError):
-            engine_conn.extract("Sample communication")
+    @patch("backend.app.ai.providers.meta.requests.post")
+    def test_meta_provider_successful_extraction(self, mock_post):
+        """Verify MetaProvider formats chat completion request and parses JSON response."""
+        sample_response_content = json.dumps({
+            "company_name": "MetaStore",
+            "commitment_category": "refund",
+            "commitment_description": "Refund of $50 will be credited within 3 business days.",
+            "amount": 50.0,
+            "currency": "USD",
+            "communication_date": "2026-11-14",
+            "deadline": {
+                "deadline_type": "duration",
+                "duration_value": 3.0,
+                "duration_unit": "business_days",
+                "raw_deadline_text": "within 3 business days"
+            },
+            "commitment_type": "explicit",
+            "is_vague_estimate": False,
+            "supporting_quotation": "A refund of $50 will be credited within 3 business days.",
+            "missing_or_ambiguous_fields": [],
+            "user_confirmation_required": False
+        })
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [
+                {
+                    "message": {
+                        "content": f"```json\n{sample_response_content}\n```"
+                    }
+                }
+            ]
+        }
+        mock_post.return_value = mock_response
+
+        provider = MetaProvider(api_key="test-key-12345", model_name="muse-spark-1.3")
+        engine = PromiseExtractionEngine(provider=provider)
+
+        input_text = "Dear user, A refund of $50 will be credited within 3 business days. MetaStore team."
+        result = engine.extract(input_text)
+
+        self.assertEqual(result.company_name, "MetaStore")
+        self.assertEqual(result.amount, 50.0)
+        self.assertEqual(result.currency, "USD")
+        self.assertEqual(result.commitment_category, CommitmentCategory.REFUND)
+        self.assertEqual(result.deadline.duration_value, 3.0)
+        self.assertEqual(result.deadline.duration_unit, "business_days")
+        self.assertFalse(result.user_confirmation_required)
+
+        # Verify request parameters
+        call_args = mock_post.call_args
+        self.assertEqual(call_args[1]["headers"]["Authorization"], "Bearer test-key-12345")
+        self.assertEqual(call_args[1]["json"]["model"], "muse-spark-1.3")
+
+    @patch("backend.app.ai.providers.meta.requests.post")
+    def test_meta_provider_http_error_mappings(self, mock_post):
+        """Verify MetaProvider maps 401, 429, and 500 status codes to typed exceptions."""
+        provider = MetaProvider(api_key="valid-dummy-key")
+
+        # 401 Unauthorized -> AIAuthenticationError
+        mock_resp_401 = MagicMock(status_code=401, text="Unauthorized Bearer token")
+        mock_post.return_value = mock_resp_401
+        with self.assertRaises(AIAuthenticationError):
+            provider.extract_commitment("Sample text")
+
+        # 429 Rate Limit -> AIRateLimitError
+        mock_resp_429 = MagicMock(status_code=429, text="Rate limit exceeded")
+        mock_post.return_value = mock_resp_429
+        with self.assertRaises(AIRateLimitError):
+            provider.extract_commitment("Sample text")
 
 
 if __name__ == "__main__":

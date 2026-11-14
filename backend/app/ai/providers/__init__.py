@@ -10,7 +10,7 @@ from backend.app.ai.providers.base import (
     AIRateLimitError,
     AIResponseParsingError,
 )
-from backend.app.ai.providers.gemini import GeminiProvider
+from backend.app.ai.providers.meta import MetaProvider
 from backend.app.ai.providers.mock import MockAIProvider
 from backend.app.ai.providers.factory import get_ai_provider
 
@@ -21,7 +21,7 @@ __all__ = [
     "AIConnectionError",
     "AIRateLimitError",
     "AIResponseParsingError",
-    "GeminiProvider",
+    "MetaProvider",
     "MockAIProvider",
     "get_ai_provider",
 ]
