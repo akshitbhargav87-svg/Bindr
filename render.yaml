@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: bindr
+    runtime: docker
+    region: singapore
+    plan: 0.5c-512mb
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeployTrigger: off
+    disk:
+      name: bindr-evidence
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bindr-db
+          property: connectionString
+      - key: EVIDENCE_STORAGE_DIR
+        value: /var/data/evidence
+      - key: AI_PROVIDER
+        value: meta
+      - key: META_MODEL
+        value: muse-spark-1.3
+      - key: META_BASE_URL
+        value: https://api.meta.ai/v1
+      - key: META_TIMEOUT
+        value: "45"
+      - key: SESSION_LIFETIME_SECONDS
+        value: "2592000"
+databases:
+  - name: bindr-db
+    region: singapore
+    plan: 0.1c-256mb
+    diskSizeGB: 1
+    databaseName: bindr
+    user: bindr
+    ipAllowList: []
