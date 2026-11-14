@@ -1,5 +1,6 @@
 .git
 .venv
+.ocr-models
 **/__pycache__
 **/.pytest_cache
 **/node_modules

@@ -3,7 +3,7 @@ services:
     name: bindr
     runtime: docker
     region: singapore
-    plan: 0.5c-512mb
+    plan: 1c-2g
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
