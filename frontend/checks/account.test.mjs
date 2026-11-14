@@ -15,6 +15,7 @@ test('credential errors do not reveal whether an email exists or expose provider
   assert.equal(api.authMessage({code:'auth/user-not-found'}),common);
   assert.doesNotMatch(api.authMessage({code:'auth/unknown',message:'private provider response'}),/private/);
   assert.match(api.authMessage({code:'auth/invalid-verification-code'}),/incorrect or expired/);
+  assert.match(api.authMessage({code:'auth/weak-password'}),/6–128 characters/);
 });
 
 test('new account CSRF cookies take precedence over the legacy anonymous cookie',()=>{

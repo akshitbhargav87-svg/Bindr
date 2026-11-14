@@ -1,4 +1,5 @@
 import type { Auth } from '@firebase/auth';
+import { PASSWORD_LENGTH_DESCRIPTION } from './password-policy';
 import { accountContext,accountHeaders,assertAccountContext,sessionEnded } from './account-context';
 export interface Account {id:string;email:string;display_name:string;provider_uid:string}
 export interface AccountInfo {account:Account;csrf_token:string;mfa_enabled:boolean;legacy_case_count:number;expires_at:number}
@@ -28,7 +29,7 @@ export function authMessage(cause:unknown):string {
     'auth/wrong-password':'The email or password is incorrect. Please try again.',
     'auth/user-not-found':'The email or password is incorrect. Please try again.',
     'auth/email-already-in-use':'We could not create this account. Try signing in or resetting your password.',
-    'auth/weak-password':'Choose a stronger password with at least 12 characters.',
+    'auth/weak-password':`Choose a password with ${PASSWORD_LENGTH_DESCRIPTION}.`,
     'auth/password-does-not-meet-requirements':'Choose a password that meets the requirements below.',
     'auth/too-many-requests':'Too many attempts. Please wait a little before trying again.',
     'auth/popup-closed-by-user':'Google sign-in was closed. You can try again.',

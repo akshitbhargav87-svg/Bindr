@@ -26,8 +26,10 @@ def identity_options(current, google, domains):
     policy = current.get("passwordPolicyConfig", {})
     versions = policy.get("passwordPolicyVersions", [])
     strength = versions[0].get("customStrengthOptions", {}) if len(versions) == 1 else {}
-    if policy.get("passwordPolicyEnforcementState") != "ENFORCE" or strength.get("minPasswordLength", 0) < 12:
-        raise SystemExit("Set Authentication > Settings > Password policy to Require with at least 12 characters, then rerun.")
+    minimum, maximum = strength.get("minPasswordLength"), strength.get("maxPasswordLength")
+    if policy.get("passwordPolicyEnforcementState") != "ENFORCE" or minimum != 6 or maximum != 128:
+        raise SystemExit("Set Authentication > Settings > Password policy to Require with minimum 6 and maximum 128 characters, then rerun. "
+                         f"Google reports enforcement={policy.get('passwordPolicyEnforcementState', 'unset')}, minimum={minimum}, maximum={maximum}.")
     mfa = deepcopy(current.get("mfa", {}))
     prior = next((p for p in mfa.get("providerConfigs", []) if "totpProviderConfig" in p), {})
     providers = [p for p in mfa.get("providerConfigs", []) if "totpProviderConfig" not in p]
@@ -92,7 +94,7 @@ def main():
     out.write_text("# Public web identifiers; no passwords or server credentials.\n" + "".join(f"export {key}={shlex.quote(value)}\n" for key, value in public.items()), encoding="utf-8")
     print("Configured optional authenticator 2FA, email privacy, domains and runtime permissions.")
     print("Saved public web configuration to deploy/account-auth.env (ignored by Git).")
-    print("Next: confirm the enforced minimum-12-character password policy and email templates, then deploy as described in docs/AUTHENTICATION.md.")
+    print("Next: confirm the enforced 6–128-character password policy and email templates, then deploy as described in docs/AUTHENTICATION.md.")
 
 
 if __name__ == "__main__":

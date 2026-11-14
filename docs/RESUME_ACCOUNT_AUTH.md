@@ -22,7 +22,13 @@ Preview: http://127.0.0.1:8026/login (local combined app, mock AI and placeholde
 
 ## Owner gate
 
-Akshit owns project project-0021b03b-28bd-43e6-9d4. Tushar does not have access. Akshit must add Firebase/Identity Platform to that same project, enable Google and Email/Password, enforce the password policy, run the setup script and deploy. Do not request private keys or his password. Do not claim the account system is live until real-provider acceptance in AUTHENTICATION.md is complete.
+Owner setup progress in chat: Akshit selected project `project-0021b03b-28bd-43e6-9d4` (number `404714938412`), enabled Firebase/Identity Toolkit APIs, added Firebase, enabled Email/Password and Google, upgraded Authentication to Identity Platform, and registered web app `1:404714938412:web:843284bb7eeabcb138b189`. His screenshot shows a clean checkout at `6f92c49`; the old setup script stopped before mutation because its minimum-12 gate rejected his minimum 6.
+
+The user explicitly chose **6–128 characters**. Registration, password reset, field limits, error/help text and the setup preflight now match that range; Google's policy validation remains enabled. The script requires Require enforcement plus minimum 6 and maximum 128. Akshit must pull the updated branch and rerun `scripts/configure_google_auth.py` with the web app ID above. Configuration success, deployment, real-provider tests, email templates and remaining public-launch operations are still pending. Continue one step at a time, giving copyable commands and waiting for his output.
+
+Password-policy revision validation: 12 setup tests and all 81 frontend checks passed, including registration/reset boundary cases and provider-policy rejection. The connected TypeScript/Vite build passed. These checks stub the external provider and do not establish live-provider success.
+
+Akshit owns project project-0021b03b-28bd-43e6-9d4. Tushar does not have access. Akshit handles the remaining configuration script and deployment in that same project. Do not request private keys or his password. Do not claim the account system is live until real-provider acceptance in AUTHENTICATION.md is complete.
 
 The old live anonymous MVP has not been changed. No cloud resources have been changed in this chat. Deployment of this branch refuses incomplete identity settings and rejects anonymous production mode. Keep existing AUTH_SECRET, database and evidence bucket to preserve old records.
 

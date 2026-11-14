@@ -15,7 +15,7 @@ Use existing project `project-0021b03b-28bd-43e6-9d4`, service `bindr`, region `
 1. Open https://console.firebase.google.com/ using the Google account that owns the project. Add Firebase to the existing Google Cloud project if necessary. Do not create a replacement project.
 2. Open Authentication (under Security or Build in the current console). Start it if necessary, then upgrade to Authentication with Identity Platform. Review and accept the displayed usage/billing terms. The upgrade is needed for authenticator-app TOTP: https://firebase.google.com/docs/auth/web/totp-mfa.
 3. In Authentication → Sign-in method, enable **Email/Password** with password sign-in enabled and **Google** with the appropriate support email. Leave anonymous sign-in disabled. Retain one account per email.
-4. In Authentication → Settings → Password policy, choose **Require**, minimum **12**, maximum **128** characters, and save. The setup script refuses an unenforced or shorter minimum.
+4. In Authentication → Settings → Password policy, choose **Require**, minimum **6**, maximum **128** characters, and save. The setup script requires enforcement and the same minimum and maximum as the app.
 5. In Project settings → General → Your apps, register a **Web app** named Bindr. Hosting and Analytics are not needed. Copy its public **App ID**, shaped like `1:123456:web:abcdef`. This is not the project ID or API key.
 6. In Google Cloud Console → Google Auth Platform, review Branding (Bindr name and working contact emails) and Audience. A public launch must allow external Google users. Complete Google's production publishing requirements shown there; report any requested brand/domain verification instead of assuming it has passed. Bindr requests basic identity scopes only, not Gmail or Drive access. See https://support.google.com/cloud/answer/15549945.
 
@@ -114,7 +114,7 @@ Deployed commit:
 Deployment URL:
 Firebase/Identity Platform enabled: yes/no
 Google + Email/Password enabled: yes/no
-Enforced minimum 12 characters: yes/no
+Enforced password length 6–128 characters: yes/no
 Optional authenticator TOTP configured: yes/no
 Email verification/reset handler: Bindr / Firebase default
 External Google account login tested: pass/fail
