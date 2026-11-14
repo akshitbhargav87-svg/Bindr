@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.app.core.config import settings
-from backend.app.core.database import Base, engine
+from backend.app.core.database import Base, engine, run_sqlite_migrations
 from backend.app.api.router import api_router
 
 logger = logging.getLogger("backend.app.main")
@@ -16,8 +16,9 @@ logger = logging.getLogger("backend.app.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize SQLite tables on startup
+    # Initialize SQLite tables and run non-destructive schema migrations
     Base.metadata.create_all(bind=engine)
+    run_sqlite_migrations(engine)
     yield
 
 

@@ -294,6 +294,8 @@ class AIModuleAdapter:
                 # Verify source quotation is verbatim
                 source_quote = getattr(result, "supporting_quotation", None)
                 raw_text = getattr(result, "raw_source_text", "") or ""
+                if raw_text:
+                    ev["text"] = raw_text
                 evidence_text = raw_text or text_content or ""
                 if not source_quote:
                     source_quote = evidence_text[:min(120, len(evidence_text))] if evidence_text else "Commitment stated in evidence"
@@ -356,10 +358,12 @@ class AIModuleAdapter:
                     }
                 })
 
-            return {
+            output_dict = {
                 "schema_version": 1,
                 "candidates": candidates
             }
+            validate_ai_extraction_output(output_dict, payload["evidence"], existing_commitments)
+            return output_dict
 
         except AIAdapterError:
             raise
@@ -382,32 +386,200 @@ class AIModuleAdapter:
         evidence: List[Dict[str, Any]]
     ):
         """Validate candidate schema, candidate IDs, money values, and source attribution."""
-        evidence_map = {e["evidence_id"]: e.get("text", "") for e in evidence}
-        valid_id_pattern = re.compile(r"^c[1-9][0-9]*$")
+        validate_ai_extraction_output(
+            {"schema_version": 1, "candidates": candidates},
+            evidence_items=evidence
+        )
 
-        for cand in candidates:
-            cand_id = cand.get("candidate_id", "")
-            if not valid_id_pattern.match(cand_id):
-                raise AIInvalidOutputError(f"Candidate ID '{cand_id}' violates contract pattern '^c[1-9][0-9]*$'.")
+    def _mock_extraction_contract_response(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Explicitly labeled mock adapter output for development and unit testing."""
+        first_ev = payload["evidence"][0]
+        ev_id = first_ev["evidence_id"]
+        text = first_ev.get("text", "Extracted evidence text")
+        snippet = text[:min(60, len(text))]
 
-            terms = cand.get("terms", {})
-            amt = terms.get("amount_minor")
-            if amt is not None and (not isinstance(amt, int) or amt < 0 or amt > 9007199254740991):
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' contains invalid amount_minor: {amt}.")
+        return {
+            "schema_version": 1,
+            "candidates": [
+                {
+                    "candidate_id": "c1",
+                    "terms": {
+                        "kind": "refund",
+                        "description": f"Extracted candidate promise: '{snippet}'",
+                        "amount_minor": None,
+                        "currency": None,
+                        "due_at": None
+                    },
+                    "sources": [
+                        {
+                            "evidence_id": ev_id,
+                            "quote": snippet
+                        }
+                    ],
+                    "confidence": 0.90,
+                    "warnings": ["Human confirmation required before saving"],
+                    "revision": {
+                        "relation": "new",
+                        "supersedes_id": None,
+                        "reason": "Development mock candidate"
+                    }
+                }
+            ]
+        }
 
-            sources = cand.get("sources", [])
-            if not sources:
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' has no source citations.")
 
-            for src in sources:
-                eid = src.get("evidence_id")
-                quote = src.get("quote", "")
-                if eid not in evidence_map:
-                    raise AIInvalidOutputError(f"Candidate '{cand_id}' cites evidence '{eid}' not in request.")
-                if quote and evidence_map[eid] and quote not in evidence_map[eid]:
-                    raise AIInvalidOutputError(
-                        f"Candidate '{cand_id}' quote is not a verbatim substring of cited evidence '{eid}'."
-                    )
+def validate_ai_extraction_output(
+    data: Any,
+    evidence_items: List[Dict[str, Any]],
+    existing_commitments: Optional[List[Dict[str, Any]]] = None
+) -> None:
+    """
+    Validates AI extraction output strictly against docs/AI_CONTRACT.md.
+    Rejects all six malformed AI-output variants before draft persistence:
+    1. Schema version and top-level shape (schema_version == 1, exactly expected root keys).
+    2. Candidate shape, count (0-10), candidate_id pattern (^c[1-9][0-9]*$), and uniqueness.
+    3. Terms validation (kind in {refund, replacement, service, other}, description 1-2000 chars, amount bounds).
+    4. Money pairing rules (amount_minor and currency must both be present or both null).
+    5. Sources and verbatim citation (no invented evidence IDs, non-empty quotes <= 2000 chars, verbatim match).
+    6. Metadata and revision shape (confidence in [0, 1], warnings string list, valid revision relation/reason).
+    """
+    if not isinstance(data, dict):
+        raise AIInvalidOutputError("AI output must be a JSON object.")
+
+    # 1. Schema version & Top-Level Keys ("All keys required, no extras.")
+    if "schema_version" not in data or data.get("schema_version") != 1:
+        raise AIInvalidOutputError("Unsupported or missing AI schema version (expected 1).")
+
+    if "candidates" not in data or not isinstance(data["candidates"], list):
+        raise AIInvalidOutputError("AI output missing 'candidates' array.")
+
+    for key in data.keys():
+        if key not in ("schema_version", "candidates"):
+            raise AIInvalidOutputError(f"Unexpected root key '{key}' in AI output.")
+
+    candidates = data["candidates"]
+    if len(candidates) > 10:
+        raise AIInvalidOutputError(f"AI output contains {len(candidates)} candidates (max 10 allowed).")
+
+    allowed_evidence_ids = {e["evidence_id"] for e in evidence_items}
+    evidence_text_map = {}
+    for e in evidence_items:
+        eid = e["evidence_id"]
+        txt = e.get("text")
+        if not txt and e.get("file_bytes"):
+            try:
+                txt = e["file_bytes"].decode("utf-8", errors="ignore")
+            except Exception:
+                txt = ""
+        evidence_text_map[eid] = txt or ""
+    active_comm_ids = {c["id"] for c in (existing_commitments or []) if c.get("status") == "active"}
+
+    seen_candidate_ids = set()
+    candidate_id_regex = re.compile(r"^c[1-9][0-9]*$")
+
+    for idx, cand in enumerate(candidates):
+        if not isinstance(cand, dict):
+            raise AIInvalidOutputError(f"Candidate at index {idx} must be a JSON object.")
+
+        required_cand_keys = {"candidate_id", "terms", "sources", "confidence", "warnings", "revision"}
+        missing_keys = required_cand_keys - set(cand.keys())
+        if missing_keys:
+            raise AIInvalidOutputError(f"Candidate at index {idx} missing required keys: {sorted(missing_keys)}.")
+
+        # 2. Candidate ID
+        cand_id = cand.get("candidate_id")
+        if not isinstance(cand_id, str) or not candidate_id_regex.match(cand_id):
+            raise AIInvalidOutputError(f"Candidate ID '{cand_id}' violates pattern '^c[1-9][0-9]*$'.")
+        if cand_id in seen_candidate_ids:
+            raise AIInvalidOutputError(f"Duplicate candidate ID '{cand_id}' in extraction draft.")
+        seen_candidate_ids.add(cand_id)
+
+        # 3. Terms
+        terms = cand.get("terms")
+        if not isinstance(terms, dict):
+            raise AIInvalidOutputError(f"Candidate '{cand_id}' terms must be an object.")
+
+        kind = terms.get("kind")
+        if kind not in {"refund", "replacement", "service", "other"}:
+            raise AIInvalidOutputError(f"Candidate '{cand_id}' terms.kind '{kind}' is invalid.")
+
+        description = terms.get("description")
+        if not isinstance(description, str) or not description.strip() or len(description) > 2000:
+            raise AIInvalidOutputError(f"Candidate '{cand_id}' description must be 1-2000 characters.")
+
+        amount_minor = terms.get("amount_minor")
+        currency = terms.get("currency")
+
+        if amount_minor is not None:
+            if not isinstance(amount_minor, int) or isinstance(amount_minor, bool) or amount_minor < 0 or amount_minor > 9007199254740991:
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' amount_minor must be an integer between 0 and 9007199254740991.")
+
+        if currency is not None:
+            if not isinstance(currency, str) or len(currency.strip()) != 3:
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' currency must be a 3-letter ISO code.")
+
+        # 4. Money Pairing Rule
+        if (amount_minor is None and currency is not None) or (amount_minor is not None and currency is None):
+            raise AIInvalidOutputError(f"Candidate '{cand_id}' violates money pairing: amount_minor and currency must both be present or both null.")
+
+        # 5. Sources & Citations
+        sources = cand.get("sources")
+        if not isinstance(sources, list) or len(sources) < 1 or len(sources) > 10:
+            raise AIInvalidOutputError(f"Candidate '{cand_id}' sources must contain 1 to 10 citations.")
+
+        seen_source_eids = set()
+        for s_idx, src in enumerate(sources):
+            if not isinstance(src, dict):
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' source at index {s_idx} must be an object.")
+            eid = src.get("evidence_id")
+            quote = src.get("quote")
+
+            if not eid or eid not in allowed_evidence_ids:
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' cites evidence ID '{eid}' not present in extraction request.")
+            if eid in seen_source_eids:
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' cites duplicate evidence ID '{eid}'.")
+            seen_source_eids.add(eid)
+
+            if not isinstance(quote, str) or not quote.strip() or len(quote) > 2000:
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' quote must be a non-empty string of at most 2000 characters.")
+
+            # Verbatim substring validation against cited document
+            ev_text = evidence_text_map.get(eid, "")
+            if ev_text and quote not in ev_text:
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' quote is not a verbatim substring of cited evidence '{eid}'.")
+
+        # 6. Metadata & Revision
+        confidence = cand.get("confidence")
+        if not isinstance(confidence, (int, float)) or isinstance(confidence, bool) or confidence < 0.0 or confidence > 1.0:
+            raise AIInvalidOutputError(f"Candidate '{cand_id}' confidence must be a finite float between 0.0 and 1.0.")
+
+        warnings = cand.get("warnings")
+        if not isinstance(warnings, list):
+            raise AIInvalidOutputError(f"Candidate '{cand_id}' warnings must be an array.")
+        for w in warnings:
+            if not isinstance(w, str) or len(w) < 1 or len(w) > 500:
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' warning item must be a string of 1-500 characters.")
+
+        revision = cand.get("revision")
+        if not isinstance(revision, dict):
+            raise AIInvalidOutputError(f"Candidate '{cand_id}' revision must be an object.")
+
+        relation = revision.get("relation")
+        if relation not in {"new", "revision", "uncertain"}:
+            raise AIInvalidOutputError(f"Candidate '{cand_id}' revision.relation '{relation}' is invalid.")
+
+        reason = revision.get("reason")
+        if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
+            raise AIInvalidOutputError(f"Candidate '{cand_id}' revision.reason must be 1-1000 characters.")
+
+        supersedes_id = revision.get("supersedes_id")
+        if relation in ("new", "uncertain") and supersedes_id is not None:
+            raise AIInvalidOutputError(f"Candidate '{cand_id}' revision relation '{relation}' requires supersedes_id to be null.")
+        if relation == "revision":
+            if not supersedes_id:
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' revision relation 'revision' requires non-null supersedes_id.")
+            if active_comm_ids and supersedes_id not in active_comm_ids:
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' supersedes_id '{supersedes_id}' is not an active commitment in this case.")
 
     def _mock_extraction_contract_response(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Explicitly labeled mock adapter output for development and unit testing."""
