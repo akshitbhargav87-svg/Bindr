@@ -7,7 +7,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from backend.app.core.database import Base, get_db
+from backend.app.core.config import settings
 from backend.app.services.storage import storage_service
+from backend.app.services.ai_adapter import ai_adapter
 from backend.app.main import app
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -21,6 +23,21 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 
 @pytest.fixture(scope="function", autouse=True)
+def test_environment(temp_storage):
+    """Ensure tests run with offline mock provider by default and clean engine state."""
+    old_provider = settings.AI_PROVIDER
+    old_key = settings.MODEL_API_KEY
+    settings.AI_PROVIDER = "mock"
+    ai_adapter._engine = None
+    try:
+        yield
+    finally:
+        settings.AI_PROVIDER = old_provider
+        settings.MODEL_API_KEY = old_key
+        ai_adapter._engine = None
+
+
+@pytest.fixture(scope="function")
 def temp_storage():
     """Isolated temporary directory for test storage."""
     temp_dir = tempfile.mkdtemp()

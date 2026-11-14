@@ -11,10 +11,12 @@ Adheres to docs/AI_CONTRACT.md:
 
 from __future__ import annotations
 
+import os
 import logging
 import re
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
+from backend.app.core.config import settings
 
 logger = logging.getLogger("backend.app.services.ai_adapter")
 
@@ -125,15 +127,77 @@ class AIModuleAdapter:
         self._engine = None
 
     def _get_engine(self):
-        """Lazy load Kunal's PromiseExtractionEngine without modifying backend/app/ai/."""
-        if self._engine is None:
+        """
+        Instantiate Kunal's PromiseExtractionEngine with the configured provider.
+        Respects AI_PROVIDER ('meta' or 'mock'), MODEL_API_KEY, META_MODEL, and META_BASE_URL.
+        Does NOT silently fall back to mock when in 'meta' mode.
+        """
+        if self._engine is not None:
+            return self._engine
+
+        provider_name = (settings.AI_PROVIDER or os.getenv("AI_PROVIDER", "meta")).lower().strip()
+        api_key = settings.MODEL_API_KEY or os.getenv("MODEL_API_KEY")
+        base_url = settings.META_BASE_URL or os.getenv("META_BASE_URL", "https://api.meta.ai/v1")
+        model_name = settings.META_MODEL or os.getenv("META_MODEL", "muse-spark-1.3")
+
+        # In production Meta mode, if MODEL_API_KEY is missing, raise AIServiceUnavailableError immediately
+        if provider_name == "meta":
+            if not api_key or not api_key.strip():
+                raise AIServiceUnavailableError(
+                    "Meta API key is not configured. Please set the MODEL_API_KEY environment variable.",
+                    code="AI_UNAVAILABLE"
+                )
+
+        try:
+            from backend.app.ai.providers.factory import get_ai_provider
+            from backend.app.ai.engine import PromiseExtractionEngine
+            from backend.app.ai.providers.base import (
+                AIAuthenticationError,
+                AIConnectionError,
+                AIRateLimitError,
+                AIResponseParsingError,
+            )
+
+            kwargs = {}
+            if provider_name == "meta":
+                kwargs["timeout"] = self.timeout_seconds
+
+            provider = get_ai_provider(
+                provider_name=provider_name,
+                api_key=api_key,
+                base_url=base_url,
+                model_name=model_name,
+                **kwargs
+            )
+            return PromiseExtractionEngine(provider=provider, fallback_on_error=False)
+        except AIAdapterError:
+            raise
+        except Exception as e:
             try:
-                from backend.app.ai.engine import PromiseExtractionEngine
-                self._engine = PromiseExtractionEngine(fallback_on_error=False)
-            except Exception as e:
-                logger.warning(f"Could not initialize production AI engine: {e}. Fallback to mock adapter.")
-                self._engine = None
-        return self._engine
+                from backend.app.ai.providers.base import (
+                    AIAuthenticationError,
+                    AIConnectionError,
+                    AIRateLimitError,
+                    AIResponseParsingError,
+                )
+                if isinstance(e, AIAuthenticationError):
+                    raise AIServiceUnavailableError(f"Meta provider authentication failed: {e}", code="AI_UNAVAILABLE") from e
+                elif isinstance(e, (AIConnectionError, AIRateLimitError)):
+                    raise AIServiceUnavailableError(f"Meta provider service error: {e}", code="AI_UNAVAILABLE") from e
+                elif isinstance(e, AIResponseParsingError):
+                    raise AIInvalidOutputError(f"AI provider returned malformed output: {e}") from e
+            except ImportError:
+                pass
+
+            err_str = str(e).lower()
+            if isinstance(e, TimeoutError) or "timeout" in err_str or "timed out" in err_str:
+                raise AITimeoutError(f"Meta provider timed out: {e}") from e
+            elif "api key" in err_str or "unauthorized" in err_str:
+                raise AIServiceUnavailableError(f"Meta provider authentication failed: {e}", code="AI_UNAVAILABLE") from e
+            elif "connection" in err_str or "network" in err_str:
+                raise AIServiceUnavailableError(f"Meta provider connection failed: {e}", code="AI_UNAVAILABLE") from e
+            else:
+                raise AIServiceUnavailableError(f"Failed to initialize AI provider '{provider_name}': {e}", code="AI_UNAVAILABLE") from e
 
     def prepare_extraction_input(
         self,
@@ -196,9 +260,6 @@ class AIModuleAdapter:
         )
 
         engine = self._get_engine()
-        if engine is None:
-            # Explicitly labeled fallback mock adapter for test/dev when provider unavailable
-            return self._mock_extraction_contract_response(payload)
 
         try:
             # Delegate to Kunal's engine
@@ -256,14 +317,28 @@ class AIModuleAdapter:
             raise
         except Exception as e:
             err_str = str(e).lower()
+            try:
+                from backend.app.ai.providers.base import (
+                    AIAuthenticationError,
+                    AIConnectionError,
+                    AIRateLimitError,
+                    AIResponseParsingError,
+                )
+                if isinstance(e, AIResponseParsingError):
+                    raise AIInvalidOutputError(f"AI provider returned malformed output: {e}") from e
+                if isinstance(e, (AIAuthenticationError, AIConnectionError, AIRateLimitError)):
+                    raise AIServiceUnavailableError(f"AI provider service error: {e}", code="AI_UNAVAILABLE") from e
+            except ImportError:
+                pass
+
             if isinstance(e, TimeoutError) or "timeout" in err_str or "timed out" in err_str:
                 raise AITimeoutError(f"AI provider request timed out: {e}") from e
             elif "auth" in err_str or "key" in err_str or "unauthorized" in err_str:
-                raise AIServiceUnavailableError(f"AI provider authentication failed: {e}") from e
+                raise AIServiceUnavailableError(f"AI provider authentication failed: {e}", code="AI_UNAVAILABLE") from e
             elif "parse" in err_str or "json" in err_str or "schema" in err_str:
                 raise AIInvalidOutputError(f"AI provider returned malformed output: {e}") from e
             else:
-                raise AIServiceUnavailableError(f"AI provider error: {e}") from e
+                raise AIServiceUnavailableError(f"AI provider error: {e}", code="AI_UNAVAILABLE") from e
 
     def _mock_extraction_contract_response(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Explicitly labeled mock adapter output for development and unit testing."""

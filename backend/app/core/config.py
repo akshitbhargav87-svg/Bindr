@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -14,6 +14,11 @@ class Settings(BaseModel):
         "application/pdf",
         "text/plain"
     ]
+    # Meta Model API & AI configuration
+    AI_PROVIDER: str = os.getenv("AI_PROVIDER", "meta")
+    MODEL_API_KEY: Optional[str] = os.getenv("MODEL_API_KEY", None)
+    META_MODEL: str = os.getenv("META_MODEL", "muse-spark-1.3")
+    META_BASE_URL: str = os.getenv("META_BASE_URL", "https://api.meta.ai/v1")
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
