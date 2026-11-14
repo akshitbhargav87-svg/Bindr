@@ -1,0 +1,186 @@
+import uuid
+from typing import Optional, List
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Response
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+
+from backend.app.core.database import get_db
+from backend.app.models.case import Case, utc_now_iso
+from backend.app.models.evidence import Evidence
+from backend.app.models.timeline import TimelineEvent
+from backend.app.schemas.contract import (
+    EvidenceSchema, EvidenceUploadResponse, EvidenceListResponse
+)
+from backend.app.services.storage import (
+    storage_service, sanitize_filename, inspect_content_mime_type,
+    InvalidFileError, FileTooLargeError, StorageError
+)
+
+router = APIRouter(prefix="/cases/{case_id}/evidence", tags=["Evidence"])
+
+
+def _api_error(status_code: int, code: str, message: str, details: Optional[list] = None):
+    req_id = str(uuid.uuid4())
+    raise HTTPException(
+        status_code=status_code,
+        detail={
+            "error": {
+                "code": code,
+                "message": message,
+                "details": details or [],
+                "request_id": req_id
+            }
+        }
+    )
+
+
+@router.post("", response_model=EvidenceUploadResponse, status_code=status.HTTP_201_CREATED)
+async def upload_evidence(
+    case_id: str,
+    file: UploadFile = File(...),
+    expected_version: Optional[int] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload evidence file (PNG, JPEG, PDF, text/plain) to a case.
+    Validates file format by content inspection, enforces max 10MB limit,
+    hashes with SHA-256, increments case version, and records a timeline event.
+    """
+    case = db.query(Case).filter(Case.id == case_id).first()
+    if not case:
+        _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Case {case_id} not found.")
+
+    if case.status == "resolved":
+        _api_error(status.HTTP_409_CONFLICT, "CASE_RESOLVED", "Resolved cases permit reads only.")
+
+    if expected_version is not None and case.version != expected_version:
+        _api_error(
+            status.HTTP_409_CONFLICT,
+            "VERSION_CONFLICT",
+            f"Case version conflict: current is {case.version}, expected {expected_version}."
+        )
+
+    # Read uploaded file content
+    try:
+        content = await file.read()
+    except Exception as e:
+        _api_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "UNREADABLE_EVIDENCE", f"Could not read upload: {e}")
+
+    # Check 0 bytes
+    if not content or len(content) == 0:
+        _api_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", "Uploaded file is empty (0 bytes).")
+
+    # Content type inspection via magic bytes
+    try:
+        detected_mime = inspect_content_mime_type(content, file.content_type)
+    except InvalidFileError as e:
+        _api_error(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE", str(e))
+
+    evidence_id = str(uuid.uuid4())
+    safe_name = sanitize_filename(file.filename)
+
+    # Save to storage abstraction
+    try:
+        storage_key, sha256_hash, size_bytes = storage_service.save_file(content, evidence_id)
+    except FileTooLargeError as e:
+        _api_error(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "FILE_TOO_LARGE", str(e))
+    except StorageError as e:
+        _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "STORAGE_ERROR", str(e))
+
+    download_path = f"/api/v1/cases/{case_id}/evidence/{evidence_id}/content"
+    now_iso = utc_now_iso()
+
+    try:
+        evidence = Evidence(
+            id=evidence_id,
+            case_id=case_id,
+            filename=safe_name,
+            media_type=detected_mime,
+            size_bytes=size_bytes,
+            sha256=sha256_hash,
+            storage_key=storage_key,
+            download_path=download_path,
+            created_at=now_iso
+        )
+        db.add(evidence)
+
+        # Increment case version
+        case.version += 1
+
+        # Prevent duplicate timeline entries
+        timeline_entry = TimelineEvent(
+            case_id=case_id,
+            event_type="evidence_uploaded",
+            description=f"Evidence uploaded: '{safe_name}' ({detected_mime}, {size_bytes} bytes).",
+            event_date=now_iso,
+            created_at=now_iso
+        )
+        db.add(timeline_entry)
+
+        db.commit()
+        db.refresh(evidence)
+        db.refresh(case)
+
+    except Exception as e:
+        db.rollback()
+        storage_service.delete_file(storage_key)
+        _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "DATABASE_ERROR", f"Failed to record evidence: {e}")
+
+    return {
+        "evidence": EvidenceSchema.model_validate(evidence),
+        "case_version": case.version
+    }
+
+
+@router.get("", response_model=EvidenceListResponse)
+def list_case_evidence(case_id: str, db: Session = Depends(get_db)):
+    """List all evidence metadata associated with a case."""
+    case = db.query(Case).filter(Case.id == case_id).first()
+    if not case:
+        _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Case {case_id} not found.")
+
+    evidence_items = (
+        db.query(Evidence)
+        .filter(Evidence.case_id == case_id)
+        .order_by(Evidence.created_at.asc(), Evidence.id.asc())
+        .all()
+    )
+    return {"evidence": [EvidenceSchema.model_validate(e) for e in evidence_items]}
+
+
+@router.get("/{evidence_id}", response_model=EvidenceSchema)
+def get_evidence_metadata(case_id: str, evidence_id: str, db: Session = Depends(get_db)):
+    """Retrieve metadata for a specific evidence item."""
+    evidence = db.query(Evidence).filter(Evidence.id == evidence_id, Evidence.case_id == case_id).first()
+    if not evidence:
+        _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Evidence {evidence_id} not found under case {case_id}.")
+    return EvidenceSchema.model_validate(evidence)
+
+
+@router.get("/{evidence_id}/content")
+def get_evidence_content(case_id: str, evidence_id: str, db: Session = Depends(get_db)):
+    """
+    Stream evidence raw bytes with secure headers.
+    Headers: Cache-Control: private, no-store, X-Content-Type-Options: nosniff.
+    """
+    evidence = db.query(Evidence).filter(Evidence.id == evidence_id, Evidence.case_id == case_id).first()
+    if not evidence:
+        _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Evidence {evidence_id} not found under case {case_id}.")
+
+    try:
+        file_path = storage_service.get_file_path(evidence.storage_key)
+    except StorageError as e:
+        _api_error(status.HTTP_404_NOT_FOUND, "FILE_NOT_FOUND", str(e))
+
+    safe_name = sanitize_filename(evidence.filename)
+    headers = {
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": f'attachment; filename="{safe_name}"'
+    }
+
+    return FileResponse(
+        path=file_path,
+        media_type=evidence.media_type,
+        headers=headers
+    )

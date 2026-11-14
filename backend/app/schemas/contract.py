@@ -111,3 +111,43 @@ class CaseCreateResponse(BaseModel):
 
 class CaseListResponse(BaseModel):
     cases: List[CaseSchema]
+
+
+class EvidenceUploadResponse(BaseModel):
+    evidence: EvidenceSchema
+    case_version: int
+
+
+class EvidenceListResponse(BaseModel):
+    evidence: List[EvidenceSchema]
+
+
+class TimelineEventSchema(BaseModel):
+    id: str
+    case_id: str
+    event_type: str
+    description: str
+    event_date: str
+    created_at: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TimelineResponse(BaseModel):
+    timeline_events: List[TimelineEventSchema]
+
+
+class ErrorDetail(BaseModel):
+    field: Optional[str] = None
+    message: str
+
+
+class ErrorPayload(BaseModel):
+    code: str
+    message: str
+    details: List[ErrorDetail] = []
+    request_id: str
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorPayload

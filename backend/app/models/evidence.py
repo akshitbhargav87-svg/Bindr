@@ -18,6 +18,7 @@ class Evidence(Base):
     media_type = Column(String(100), nullable=False, default="text/plain")
     size_bytes = Column(Integer, nullable=False, default=0)
     sha256 = Column(String(64), nullable=False, default="")
+    storage_key = Column(String(255), nullable=False)
     download_path = Column(String(500), nullable=True)
     description = Column(Text, nullable=True)
     created_at = Column(String(50), nullable=False, default=utc_now_iso)
