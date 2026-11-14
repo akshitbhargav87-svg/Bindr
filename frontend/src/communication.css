@@ -1,0 +1,49 @@
+/* Case communications reuse the capture/review system rather than introducing another theme. */
+.communication-loading,.communication-empty {display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;padding:64px 24px;}
+.communication-loading > svg,.communication-empty > svg {color:var(--color-indigo);}
+.communication-empty p {max-width:520px;color:var(--color-muted);}
+.communication-case {display:flex;justify-content:space-between;align-items:center;gap:24px;padding:20px 24px;border:1px solid var(--color-line);border-radius:8px;background:var(--color-paper);margin-bottom:28px;}
+.communication-case strong {display:block;font-size:var(--text-ui-body);font-weight:600;}
+.communication-case span {display:block;color:var(--color-muted);font-size:var(--text-ui-meta);margin-top:4px;}
+.communication-input-layout {display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr);gap:28px;align-items:start;}
+.communication-date {margin-top:24px;max-width:380px;}
+.communication-match {margin-top:24px;}
+.communication-file {padding:32px 24px;border:1px dashed var(--color-line);border-radius:8px;background:var(--color-canvas);display:flex;flex-direction:column;align-items:center;text-align:center;gap:20px;}
+.communication-file > svg {color:var(--color-indigo);}
+.communication-file p {color:var(--color-muted);font-size:var(--text-ui-meta);}
+.communication-selected-file {display:flex;align-items:center;gap:12px;width:100%;text-align:left;}
+.communication-selected-file strong {flex:1;min-width:0;overflow-wrap:anywhere;font-weight:500;font-size:var(--text-ui-meta);}
+.communication-selected-file button {width:44px;height:44px;display:grid;place-items:center;flex-shrink:0;}
+.communication-guide {padding:28px;background:var(--color-lilac);border:1px solid var(--color-lilac-line);border-radius:8px;}
+.communication-guide > svg {color:var(--color-indigo);margin-bottom:20px;}
+.communication-guide > p {color:var(--color-muted);font-size:var(--text-ui-body);line-height:26px;margin-top:16px;}
+.communication-guide > div {display:flex;gap:12px;align-items:flex-start;padding-top:20px;margin-top:20px;border-top:1px solid var(--color-lilac-line);}
+.communication-guide > div > svg {color:var(--color-indigo);margin-top:4px;}
+.communication-guide > div p {font-size:var(--text-ui-meta);line-height:24px;}
+.communication-progress {display:flex;align-items:center;gap:12px;padding:16px 20px;border:1px solid var(--color-lilac-line);background:var(--color-lilac);border-radius:8px;margin-bottom:24px;color:var(--color-indigo);font-size:var(--text-ui-meta);}
+.communication-comparison {display:grid;grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr);gap:16px;align-items:center;border-block:1px solid var(--color-line);padding:20px 0;}
+.communication-comparison span {color:var(--color-muted);font-size:var(--text-ui-meta);line-height:24px;display:block;}
+.communication-comparison strong {font-size:20px;line-height:28px;font-family:var(--font-display);font-weight:800;display:block;margin-top:8px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+.communication-comparison p {font-size:var(--text-ui-meta);line-height:24px;margin-top:4px;}
+.communication-comparison > svg {color:var(--color-indigo);}
+.communication-reason {padding:24px;border:1px solid var(--color-line);border-radius:8px;background:var(--color-paper);}
+.communication-no-promise {border:1px solid var(--color-line);border-radius:8px;background:var(--color-paper);padding:28px;margin-bottom:24px;}
+.communication-no-promise > svg {color:var(--color-indigo);margin-bottom:16px;}
+.communication-no-promise p {margin-top:12px;color:var(--color-muted);}
+.communication-evidence-only {padding:24px;border:1px solid var(--color-line);border-radius:8px;margin-top:28px;background:var(--color-canvas);}
+.communication-evidence-only h2 {font-size:24px;line-height:32px;}
+.communication-evidence-only > p {margin-top:12px;color:var(--color-muted);font-size:var(--text-ui-meta);line-height:24px;}
+.communication-evidence-only .capture-check {margin:16px 0 8px;}
+.communication-evidence-only .button {margin-top:20px;}
+.communication-evidence-only fieldset > .capture-meta {margin-top:16px;}
+.case-communication .capture-entry > fieldset > .capture-meta {margin-top:20px;}
+.case-communication .capture-review-form > fieldset > .button {margin-top:4px;}
+@media (max-width:1100px) {.communication-input-layout {grid-template-columns:minmax(0,1fr);}.communication-guide {max-width:none;}}
+@media (max-width:1000px) {.case-communication .review-show-source .communication-fields-column {display:none;}}
+@media (max-width:600px) {
+  .communication-case {align-items:flex-start;padding:16px;gap:12px;flex-direction:column;}
+  .communication-input-layout {gap:24px;}.communication-guide,.communication-reason,.communication-no-promise,.communication-evidence-only {padding:20px;}
+  .communication-file {padding:28px 16px;}.communication-date {max-width:none;}
+  .communication-comparison {grid-template-columns:minmax(0,1fr) 16px minmax(0,1fr);gap:10px;}
+  .communication-comparison strong {font-size:20px;}.communication-empty {padding:40px 16px;}
+}

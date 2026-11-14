@@ -132,3 +132,14 @@ test('unverifiable HTTP create result blocks further mutation instead of blind r
     assert.equal(calls,1);
   } finally {globalThis.fetch=oldFetch;if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;}
 });
+test('re-analysis recovery never restores a prior draft for a replaced communication',async()=>{
+  const m=await runtime();const initial=await m.prepareCapture(input(m),null,()=>{});
+  const replacement=input(m);replacement.sources[0].key='replacement-source';replacement.sources[0].file=new File(['We will refund INR 3000 by 2026-11-25.'],'replacement.txt',{type:'text/plain'});
+  let interrupted;
+  await assert.rejects(()=>m.prepareCapture(replacement,initial,value=>{interrupted=value;},true),/unavailable/);
+  assert.equal(interrupted.extractionId,null);
+  const recovered=await m.reconcileCapture({...interrupted,state:'needs-reconciliation'});
+  assert.equal(recovered.extractionId,null);assert.deepEqual(recovered.candidates,[]);
+  const retry=await m.prepareCapture(replacement,recovered,()=>{});
+  assert.equal(retry.candidates[0].terms.amount_minor,300000);
+});

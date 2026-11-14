@@ -13,7 +13,7 @@ const nav = [
 export default function WorkspaceLayout() {
   const workspace = useWorkspace(); const location = useLocation(); const navigate = useNavigate();
   const path = location.pathname;
-  const title = path === '/app' || path === '/app/' ? 'Overview' : path.startsWith('/app/cases/') ? 'Case summary' : path.startsWith('/app/cases') ? 'All cases' : path.startsWith('/app/review') ? 'Review promise' : path.startsWith('/app/upload') ? 'Add a promise' : path.startsWith('/app/evidence') ? 'Evidence' : path.startsWith('/app/settings') ? 'Settings' : 'Help';
+  const title = path === '/app' || path === '/app/' ? 'Overview' : path.endsWith('/update') ? 'Add communication' : path.startsWith('/app/cases/') ? 'Case detail' : path.startsWith('/app/cases') ? 'All cases' : path.startsWith('/app/archived') ? 'Archived cases' : path.startsWith('/app/review') ? 'Review promise' : path.startsWith('/app/upload') ? 'Add a promise' : path.startsWith('/app/evidence') ? 'Evidence' : path.startsWith('/app/settings') ? 'Settings' : 'Help';
   useEffect(() => {document.title = `${title} · Bindr`;}, [title]);
   const cases = workspace.data?.cases ?? [];
   return <div className="workspace">

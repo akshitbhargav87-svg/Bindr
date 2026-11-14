@@ -1,6 +1,7 @@
 import type { CaseDetail } from './types';
 import { createMockApi } from './mock-mutations';
 import { mapCaseRow, type WorkspaceSnapshot } from './mapper';
+import { dayInIndia } from './capture-validation';
 // Synthetic examples only. Deterministic clock belongs exclusively to this adapter.
 export const MOCK_TODAY = '2026-11-14';
 const examples = [
@@ -18,6 +19,7 @@ const fixtures: CaseDetail[] = examples.map(([merchant_name, title, amount_minor
 // A revision appends a commitment and preserves the original terms and evidence.
 const nova = fixtures[0];
 const original = {...nova.commitments[0], id: uuid(99), due_at: '2026-11-09T18:29:59Z', status: 'superseded' as const, evidence_ids: [uuid(300)]};
+original.extraction_id=uuid(199);
 nova.commitments[0].supersedes_id = original.id;
 nova.commitments[0].evidence_ids = [uuid(300), uuid(301)];
 nova.commitments[0].reviewed_at = '2026-11-09T09:00:00Z';
@@ -30,13 +32,17 @@ for (const [i, detail] of fixtures.entries()) {
 }
 const createdCases: CaseDetail[] = [];
 export async function loadMockWorkspace(): Promise<WorkspaceSnapshot> {
-  const cases = [...fixtures,...createdCases].filter(detail => detail.commitments.length > 0).map(detail => {
+  const {cases:listed}=await mockApi.listCases();
+  const details=await Promise.all(listed.map(c=>mockApi.getCase(c.id)));
+  const cases = details.filter(detail => detail.commitments.length > 0 && !mockApi.getCaseExtras(detail.case.id).archived).map(detail => mockCaseRow(detail));
+  return structuredClone({cases, asOf: MOCK_TODAY, timezone: 'Asia/Kolkata', demo: true});
+}
+export function mockCaseRow(detail:CaseDetail) {
     const active = detail.commitments.filter(c => c.status === 'active');
-    const day = (stamp: string) => new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date(stamp));
+    const day = dayInIndia;
     const dates = active.map(c => c.due_at).filter((v): v is string => v !== null).sort();
     const status = detail.case.status === 'resolved' ? 'Resolved' : !dates.length ? 'Needs a date' : dates.some(d => day(d) < MOCK_TODAY) ? 'Overdue' : dates.some(d => day(d) === MOCK_TODAY) ? 'Due today' : 'Active';
-    return {...mapCaseRow(detail, status), demoSeed: fixtures.includes(detail)};
-  });
-  return structuredClone({cases, asOf: MOCK_TODAY, timezone: 'Asia/Kolkata', demo: true});
+    const row=mapCaseRow(detail,status);const meta=mockApi.getCaseExtras(detail.case.id);
+    return {...row,amountMinor:detail.case.status!=='resolved' && row.amountMinor!==null ? Math.max(0,row.amountMinor-meta.receivedMinor) : row.amountMinor,partial:meta.partiallyFulfilled && detail.case.status!=='resolved',demoSeed:fixtures.some(d=>d.case.id===detail.case.id)};
 }
 export const mockApi = createMockApi(fixtures,createdCases,MOCK_TODAY);

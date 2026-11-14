@@ -1,4 +1,5 @@
 import { ApiError, type BindrApi } from './types';
+import type { Evidence } from './types';
 const origin = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 const base = origin.endsWith('/api/v1') ? origin : `${origin}/api/v1`;
 async function request<T>(path: string, body?: object | FormData): Promise<T> {
@@ -13,6 +14,16 @@ async function request<T>(path: string, body?: object | FormData): Promise<T> {
   return data as T;
 }
 const casePath = (id: string) => `/cases/${encodeURIComponent(id)}`;
+export async function downloadHttpEvidence(evidence:Evidence):Promise<Blob> {
+  // Construct the contracted route; never follow an evidence-supplied external URL.
+  const response=await fetch(`${base}${casePath(evidence.case_id)}/evidence/${encodeURIComponent(evidence.id)}/content`,{credentials:'include',cache:'no-store'});
+  if(!response.ok) {
+    let message='The original file could not be loaded.';
+    if(response.status===404)message='This original file is unavailable. The linked case history is still retained.';
+    throw new ApiError(response.status,{code:'EVIDENCE_UNAVAILABLE',message,details:[],request_id:''});
+  }
+  return response.blob();
+}
 export const httpApi: BindrApi = {
   listCases: () => request('/cases'), getCase: id => request(casePath(id)), createCase: data => request('/cases', data),
   uploadEvidence: (id, file, version) => {const body = new FormData(); body.append('file', file); body.append('expected_version', String(version)); return request(`${casePath(id)}/evidence`, body);},

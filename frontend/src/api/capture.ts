@@ -52,6 +52,9 @@ export async function prepareCapture(input: CaptureInput, prior: CaptureJob | nu
       job={caseId:result.case.id,version:result.case.version,evidenceIds:[],uploadedKeys:[],extractionId:null,candidates:[],duplicateId:null,state:'ready'};
       update({...job},'Keeping the original evidence');
     }
+    // An explicit re-analysis must not recover an older draft after a lost response.
+    if(job.extractionId)job.ignoredExtractionIds=[...(job.ignoredExtractionIds ?? []),job.extractionId];
+    job.extractionId=null;job.candidates=[];delete job.reviewEvidenceIds;
     for(const [index,source] of input.sources.entries()) {
       let id=job.evidenceIds[job.uploadedKeys.indexOf(source.key)];
       if(!id) {
@@ -66,10 +69,11 @@ export async function prepareCapture(input: CaptureInput, prior: CaptureJob | nu
       // GAP: communication date is unsupported by the upload contract. Mock metadata only.
       if(isMock) mockApi.setCommunicationDate(id,source.communicationDate);
     }
+    const currentIds=input.sources.map(s=>job!.evidenceIds[job!.uploadedKeys.indexOf(s.key)]);
+    job.reviewEvidenceIds=currentIds;
     if(manualOnly) {update(structuredClone(job),'Ready for manual entry');return job;}
     if(simulateFailure) throw new ApiError(503,{code:'AI_UNAVAILABLE',message:'Extraction is unavailable right now. Retry or enter the promise manually.',details:[],request_id:'demo'});
     update({...job},'Finding the promise and its supporting words');
-    const currentIds=input.sources.map(s=>job!.evidenceIds[job!.uploadedKeys.indexOf(s.key)]);
     const result=await api.extract(job.caseId,currentIds,job.version);
     job.version=result.case_version;job.extractionId=result.extraction.id;job.candidates=result.extraction.candidates;
     // GAP: no duplicate-detection endpoint. Local mock suggestion never merges cases.
@@ -96,7 +100,8 @@ export async function reconcileCapture(job: CaptureJob): Promise<CaptureJob> {
     if(matches.length===1) {reconciled.evidenceIds.push(matches[0].id);reconciled.uploadedKeys.push(job.pendingUpload.key);}
     delete reconciled.pendingUpload;
   }
-  const matching=detail.extractions.find(e=>e.id===job.extractionId) ?? detail.extractions.filter(e=>e.evidence_ids.every(id=>reconciled.evidenceIds.includes(id))).at(-1);
+  const expected=job.reviewEvidenceIds ?? reconciled.evidenceIds;
+  const matching=detail.extractions.find(e=>e.id===job.extractionId) ?? detail.extractions.filter(e=>!job.ignoredExtractionIds?.includes(e.id) && e.evidence_ids.length===expected.length && e.evidence_ids.every(id=>expected.includes(id))).at(-1);
   if(matching && matching.status!=='pending_review') throw new Error('This draft has already been reviewed. Open the current case instead of saving it again.');
   return {...reconciled,version:detail.case.version,extractionId:matching?.id ?? job.extractionId,candidates:matching?.candidates ?? job.candidates,state:'ready'};
 }

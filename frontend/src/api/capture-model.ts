@@ -7,6 +7,8 @@ export interface CaptureJob {
   extractionId: string | null; candidates: Candidate[]; duplicateId: string | null;
   state: 'ready' | 'needs-reconciliation';
   pendingUpload?: {key:string;filename:string;sha256:string};
+  reviewEvidenceIds?:string[];
+  ignoredExtractionIds?:string[];
 }
 export interface ReviewFields {
   id: string; selected: boolean; kind: CommitmentKind; description: string;

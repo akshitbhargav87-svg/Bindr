@@ -1,8 +1,10 @@
 # Bindr frontend
 
-Phase 3 is implemented: `/app/upload` accepts source files or pasted messages; `/app/review` opens editable, source-linked fields with explicit confirmation. Default mock extraction reads text locally; screenshots/PDFs support preview and manual entry, without OCR. New records and their original files remain in this tab until reload. See PHASE-3-HANDOVER.md for review steps, recovery paths and HTTP integration gaps. Phase 4 detail/timeline work has not started.
+Phase 4 is implemented: case detail and preserved revision timeline, original-evidence viewer/library, case communication review, outcomes and local lifecycle actions. Start at `/app/cases` or open `/app/evidence`; archived records are at `/app/archived`. Full resolution, source downloads and revision reviews use the supplied HTTP contract. Extended outcomes and case management remain mock-only. See PHASE-4-HANDOVER.md for review steps, validation and limitations. Phase 5 has not started.
 
-Current focused checks: `node --test checks/workspace.test.mjs checks/capture.test.mjs`.
+Phase 3: `/app/upload` accepts source files or pasted messages; `/app/review` opens editable, source-linked fields with explicit confirmation. Default mock extraction reads text locally; screenshots/PDFs support preview and manual entry, without OCR. New records and their original files remain in this tab until reload. See PHASE-3-HANDOVER.md for that phase's review steps and integration gaps; the Phase 4 notes above supersede its remaining-scope list.
+
+Current focused checks: `node --test checks/workspace.test.mjs checks/capture.test.mjs checks/case.test.mjs`.
 
 Phase 2 is now implemented: `/app` opens the introduction/overview and `/app/cases` opens searchable, filterable cases. Choose **Explore sample cases** on first visit, or use the **Demo workspace** menu to review empty/offline/error states. The app uses the same Nunito/Inter typography and foundation tokens as the revised landing. See PHASE-2-HANDOVER.md for routes, validation and remaining scope. Existing Phase 1 notes below are historical where superseded.
 
