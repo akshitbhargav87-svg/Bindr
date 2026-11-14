@@ -5,6 +5,7 @@ Supports text extraction from:
 - PNG images
 - JPG/JPEG images
 - Text-based PDF documents (via PyMuPDF)
+- Plain text files (.txt)
 """
 
 from __future__ import annotations
@@ -56,7 +57,7 @@ class DocumentProcessor:
     Does not persist files permanently to disk.
     """
 
-    SUPPORTED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
+    SUPPORTED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".txt"}
 
     # Magic byte signatures for content validation
     MAGIC_BYTES = {
@@ -120,6 +121,8 @@ class DocumentProcessor:
             return self._extract_pdf(file_bytes, filename=filename)
         elif ext in {".png", ".jpg", ".jpeg"}:
             return self._extract_image(file_bytes, filename=filename, ext=ext.lstrip("."))
+        elif ext == ".txt":
+            return self._extract_text(file_bytes, filename=filename)
 
         raise UnsupportedFileTypeError(f"Unsupported file format '{ext}'")
 
@@ -229,6 +232,39 @@ class DocumentProcessor:
             raw_text=extracted_text,
             pages=[page],
             file_type=ext,
+            filename=filename,
+            total_pages=1,
+            is_empty=is_empty,
+            extraction_warnings=warnings,
+        )
+
+    def _extract_text(self, file_bytes: bytes, filename: str) -> ExtractedDocument:
+        """Extract content from a plain-text (.txt) file.
+
+        Attempts UTF-8 decoding first; falls back to latin-1 to handle
+        common single-byte encoded files without raising an error.
+        """
+        warnings: List[str] = []
+        try:
+            text = file_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            try:
+                text = file_bytes.decode("latin-1")
+                warnings.append(f"Text file '{filename}' decoded using latin-1 fallback (not valid UTF-8).")
+            except Exception as e:
+                raise UnreadableDocumentError(f"Cannot decode text file '{filename}': {e}") from e
+
+        text = text.strip()
+        is_empty = len(text) == 0
+        if is_empty:
+            warnings.append(f"Text file '{filename}' contains no readable content.")
+
+        page = DocumentPage(page_number=1, text=text)
+
+        return ExtractedDocument(
+            raw_text=text,
+            pages=[page],
+            file_type="txt",
             filename=filename,
             total_pages=1,
             is_empty=is_empty,

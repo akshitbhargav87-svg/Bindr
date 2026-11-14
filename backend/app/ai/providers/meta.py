@@ -36,12 +36,13 @@ class MetaProvider(AIProvider):
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model_name: Optional[str] = None,
-        timeout: int = 30,
+        timeout: Optional[int] = None,
     ):
         self.api_key = api_key if api_key is not None else os.getenv("MODEL_API_KEY")
         self.base_url = (base_url or os.getenv("META_BASE_URL", self.DEFAULT_BASE_URL)).rstrip("/")
         self.model_name = model_name or os.getenv("META_MODEL", self.DEFAULT_MODEL)
-        self.timeout = timeout
+        # Resolve timeout: explicit param > META_TIMEOUT env var > default 30s
+        self.timeout = timeout if timeout is not None else int(os.getenv("META_TIMEOUT", "30"))
 
     def _validate_credentials(self) -> str:
         """Validate that the Meta API key is present."""

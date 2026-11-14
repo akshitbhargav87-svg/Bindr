@@ -14,7 +14,7 @@ backend/app/ai/
 ├── engine.py                       # PromiseExtractionEngine & extract_commitment_from_evidence
 ├── schemas.py                      # Pydantic schemas (CommitmentExtractionResult, EvidenceMetadata)
 ├── prompts.py                      # Extraction system prompts & templates
-├── document_processor.py           # DocumentProcessor (PyMuPDF for PDFs, Pillow for images)
+├── document_processor.py           # DocumentProcessor (PyMuPDF for PDFs, RapidOCR for images, plain text)
 ├── env.py                          # Lightweight .env loader
 ├── providers/
 │   ├── __init__.py
@@ -25,7 +25,7 @@ backend/app/ai/
 ├── tests/
 │   ├── __init__.py
 │   ├── test_extraction.py          # Milestone 1 extraction tests (12 tests)
-│   └── test_document_processing.py # Milestone 2 document & evidence tests (9 tests)
+│   └── test_document_processing.py # Milestone 2 document & evidence tests (14 tests)
 ├── requirements-ai.txt             # Proposed dependencies for backend owner
 ├── DEPENDENCIES.md                 # Dependencies & configuration guide
 ├── .env.example                    # Environment template
@@ -34,9 +34,105 @@ backend/app/ai/
 
 ---
 
-## 2. Evidence-to-Promise Pipeline (Milestone 2)
+## 2. Environment Variables
 
-### 2.1 Usage Example
+| Variable | Required | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `MODEL_API_KEY` | Yes (meta mode) | — | Meta Model API Bearer token |
+| `AI_PROVIDER` | No | auto-detected | `"meta"` or `"mock"` |
+| `META_BASE_URL` | No | `https://api.meta.ai/v1` | Meta API base URL override |
+| `META_MODEL` | No | `muse-spark-1.3` | Model identifier |
+| `META_TIMEOUT` | No | `30` | Request timeout in seconds |
+
+> **Strict-meta guarantee:** When `AI_PROVIDER="meta"` is set, the factory **always** returns `MetaProvider`.
+> It will never silently fall back to `MockAIProvider`. If `MODEL_API_KEY` is absent,
+> `AIAuthenticationError` is raised at the first API call — not at startup.
+
+---
+
+## 3. Integration Guide for Backend (Lokesh)
+
+### 3.1 Minimal Callable Example
+
+```python
+# In your FastAPI route or service layer:
+from backend.app.ai import extract_commitment_from_evidence, SourceMetadata
+
+async def process_evidence_upload(
+    file_bytes: bytes,
+    original_filename: str,
+    evidence_id: str,
+    sender_name: str | None = None,
+):
+    """
+    Call this after saving the file to your database/storage.
+    The AI module does NOT persist anything — pass bytes, receive structured result.
+    """
+    result = extract_commitment_from_evidence(
+        file_source=file_bytes,          # bytes from FastAPI UploadFile.read()
+        filename=original_filename,      # e.g. "refund_chat.png" / "ticket.pdf" / "email.txt"
+        evidence_id=evidence_id,         # your DB record ID, e.g. "ev_8f3a1c"
+        metadata=SourceMetadata(
+            sender=sender_name,          # e.g. "Flipkart Support"
+        ),
+        fallback_on_error=True,          # returns safe degraded result instead of raising on AI errors
+    )
+
+    # result is a fully validated CommitmentExtractionResult (Pydantic model)
+    return result.model_dump()
+```
+
+### 3.2 Key Response Fields
+
+```python
+result.commitment_category       # CommitmentCategory enum: REFUND, DELIVERY, etc.
+result.commitment_type           # CommitmentType enum: EXPLICIT / INFERRED / NONE
+result.amount                    # float | None — extracted monetary amount
+result.currency                  # str | None — "INR", "USD", etc.
+result.deadline                  # DeadlineInfo | None — {duration_value, duration_unit, deadline_date}
+result.supporting_quotation      # str | None — verbatim quote from source text
+result.company_name              # str | None
+result.user_confirmation_required  # bool — True means human review needed
+result.evidence_metadata         # EvidenceMetadata — traceability back to source file
+result.evidence_metadata.evidence_id  # your passed evidence_id echoed back
+result.evidence_metadata.page_numbers # [1, 2, ...] pages where text was found
+```
+
+### 3.3 Supported File Types
+
+| Extension | Handler |
+| :--- | :--- |
+| `.pdf` | PyMuPDF — text layer extracted page-by-page |
+| `.png` / `.jpg` / `.jpeg` | Pillow + RapidOCR (onnxruntime) |
+| `.txt` | UTF-8 / latin-1 decode |
+
+### 3.4 Error Handling
+
+```python
+from backend.app.ai.document_processor import UnsupportedFileTypeError, UnreadableDocumentError
+from backend.app.ai.providers.base import AIAuthenticationError, AIConnectionError, AIRateLimitError
+
+try:
+    result = extract_commitment_from_evidence(file_source=data, filename=fname, evidence_id=eid)
+except UnsupportedFileTypeError as e:
+    # Return HTTP 422 — file format not supported
+    raise HTTPException(status_code=422, detail=str(e))
+except UnreadableDocumentError as e:
+    # Return HTTP 400 — corrupt or empty file
+    raise HTTPException(status_code=400, detail=str(e))
+except AIAuthenticationError:
+    # MODEL_API_KEY is missing or invalid
+    raise HTTPException(status_code=503, detail="AI service not configured.")
+except AIConnectionError:
+    # Network timeout or Meta API unreachable
+    raise HTTPException(status_code=503, detail="AI service temporarily unavailable.")
+```
+
+---
+
+## 4. Evidence-to-Promise Pipeline (Milestone 2)
+
+### 4.1 Usage Example
 
 ```python
 from backend.app.ai import extract_commitment_from_evidence, SourceMetadata
@@ -63,15 +159,16 @@ print(result.supporting_quotation)    # "We will refund $120.50..."
 print(result.evidence_metadata)       # EvidenceMetadata(evidence_id='ev_12345', filename='customer_email.pdf', ...)
 ```
 
-### 2.2 Supported Document Formats
+### 4.2 Supported Document Formats
 - **PDF Documents (`.pdf`)**: Extracted page-by-page using PyMuPDF (`fitz`), preserving page numbers (`Page 1`, `Page 2`, etc.).
-- **Screenshot Images (`.png`, `.jpg`, `.jpeg`)**: Validated with Pillow (`PIL`), processed in-memory without persistent disk leaks.
+- **Screenshot Images (`.png`, `.jpg`, `.jpeg`)**: Validated with Pillow (`PIL`), OCR via RapidOCR + onnxruntime.
+- **Plain Text (`.txt`)**: UTF-8 / latin-1 decoding, treated as a single-page document.
 - **Unsupported formats**: Clear typed exception `UnsupportedFileTypeError`.
 - **Empty or corrupt files**: Handled gracefully via `UnreadableDocumentError` or returned as safe degraded result requiring user confirmation.
 
 ---
 
-## 3. Evidence Traceability (`EvidenceMetadata`)
+## 5. Evidence Traceability (`EvidenceMetadata`)
 
 Every extracted commitment carries evidence traceability:
 
@@ -79,18 +176,19 @@ Every extracted commitment carries evidence traceability:
 | :--- | :--- | :--- |
 | `evidence_id` | `Optional[str]` | Unique identifier for the source evidence. |
 | `filename` | `Optional[str]` | Original filename of the document or screenshot. |
-| `file_type` | `Optional[str]` | Detected file format (`pdf`, `png`, `jpg`, `jpeg`). |
+| `file_type` | `Optional[str]` | Detected file format (`pdf`, `png`, `jpg`, `jpeg`, `txt`). |
 | `total_pages` | `Optional[int]` | Total page count in document. |
 | `page_numbers` | `List[int]` | Page numbers where text was extracted. |
 | `extraction_warnings` | `List[str]` | Any warnings encountered (e.g. scanned image PDF). |
 
 ---
 
-## 4. Running Tests
+## 6. Running Tests
 
 Tests run independently without requiring FastAPI or database connections:
 
 ```bash
-# Run all 21 automated tests:
+# Run all automated tests:
+cd /path/to/Bindr
 python -m unittest discover -s backend/app/ai/tests -v
 ```

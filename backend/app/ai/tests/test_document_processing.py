@@ -4,6 +4,7 @@ Includes real RapidOCR screenshot verification without mocks.
 """
 
 import io
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -247,6 +248,68 @@ class TestDocumentProcessing(unittest.TestCase):
         self.assertTrue(result.user_confirmation_required)
         self.assertIn("unreadable_evidence", result.missing_or_ambiguous_fields)
         self.assertEqual(result.evidence_metadata.evidence_id, "ev_empty")
+
+    # -------------------------------------------------------------------------
+    # 8. Plain-text (.txt) evidence extraction
+    # -------------------------------------------------------------------------
+    def test_txt_evidence_extraction(self):
+        """Verify that .txt files are parsed correctly, preserving text content."""
+        from backend.app.ai.document_processor import DocumentProcessor
+
+        txt_content = b"Your refund of $50 will be processed within 5 business days."
+        processor = DocumentProcessor()
+        doc = processor.process_bytes(txt_content, filename="email.txt")
+
+        self.assertEqual(doc.file_type, "txt")
+        self.assertEqual(doc.filename, "email.txt")
+        self.assertFalse(doc.is_empty)
+        self.assertEqual(doc.total_pages, 1)
+        self.assertEqual(doc.pages[0].page_number, 1)
+        self.assertIn("refund", doc.raw_text.lower())
+        self.assertIn("50", doc.raw_text)
+
+    def test_txt_evidence_pipeline_integration(self):
+        """Verify that .txt evidence flows correctly into the promise extraction pipeline."""
+        txt_bytes = b"Acme Corp will refund $75.00 within 3-5 business days."
+        result = extract_commitment_from_evidence(
+            file_source=txt_bytes,
+            filename="support_email.txt",
+            evidence_id="ev_txt_001",
+            provider=self.mock_provider,
+        )
+
+        self.assertIsNotNone(result.evidence_metadata)
+        self.assertEqual(result.evidence_metadata.evidence_id, "ev_txt_001")
+        self.assertEqual(result.evidence_metadata.filename, "support_email.txt")
+        self.assertEqual(result.evidence_metadata.file_type, "txt")
+        self.assertFalse(result.commitment_category == CommitmentCategory.NO_COMMITMENT)
+
+    # -------------------------------------------------------------------------
+    # 9. Strict-Meta mode: never silently fall back to mock
+    # -------------------------------------------------------------------------
+    def test_meta_strict_mode_no_silent_mock_fallback(self):
+        """
+        When AI_PROVIDER='meta' is explicitly set, get_ai_provider must return MetaProvider
+        (not MockAIProvider), even if the API key is empty. Auth error should be raised at
+        call time, not at factory instantiation.
+        """
+        from backend.app.ai.providers.factory import get_ai_provider
+        from backend.app.ai.providers.meta import MetaProvider
+        from backend.app.ai.providers.mock import MockAIProvider
+
+        original = os.environ.get("AI_PROVIDER")
+        os.environ["AI_PROVIDER"] = "meta"
+        try:
+            provider = get_ai_provider(provider_name="meta", api_key="")
+            self.assertIsInstance(provider, MetaProvider,
+                "Factory must return MetaProvider when AI_PROVIDER='meta' — never MockAIProvider.")
+            self.assertNotIsInstance(provider, MockAIProvider,
+                "Factory must NOT silently fall back to MockAIProvider when meta is explicitly requested.")
+        finally:
+            if original is None:
+                os.environ.pop("AI_PROVIDER", None)
+            else:
+                os.environ["AI_PROVIDER"] = original
 
 
 if __name__ == "__main__":

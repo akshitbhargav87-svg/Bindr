@@ -44,14 +44,22 @@ class PromiseExtractionEngine:
     Handles provider orchestration, error boundaries, and verbatim quote verification.
     """
 
-    def __init__(self, provider: Optional[AIProvider] = None, fallback_on_error: bool = False):
+    def __init__(
+        self,
+        provider: Optional[AIProvider] = None,
+        fallback_on_error: bool = False,
+        timeout: Optional[int] = None,
+    ):
         """
         Args:
             provider: Custom or pre-configured AIProvider instance. If None, factory default is resolved.
             fallback_on_error: If True, returns a safe degraded result requiring user confirmation
                               instead of raising exceptions on provider or parsing failures.
+            timeout: Optional request timeout in seconds forwarded to the AI provider.
+                     Falls back to META_TIMEOUT env var, then 30s default.
         """
-        self.provider = provider or get_ai_provider()
+        self.timeout = timeout
+        self.provider = provider or get_ai_provider(timeout=timeout)
         self.fallback_on_error = fallback_on_error
 
     def extract(
@@ -171,6 +179,7 @@ def extract_commitment_from_evidence(
     provider: Optional[AIProvider] = None,
     fallback_on_error: bool = False,
     document_processor: Optional[DocumentProcessor] = None,
+    timeout: Optional[int] = None,
 ) -> CommitmentExtractionResult:
     """
     Milestone 2 Evidence-to-Promise Pipeline.
@@ -187,6 +196,7 @@ def extract_commitment_from_evidence(
         provider: Custom AIProvider instance (defaults to configured Meta/Mock).
         fallback_on_error: If True, returns safe degraded result instead of raising.
         document_processor: Custom or pre-configured DocumentProcessor instance.
+        timeout: Optional request timeout in seconds forwarded to the AI provider.
 
     Returns:
         Validated CommitmentExtractionResult with EvidenceMetadata attached.
@@ -227,7 +237,12 @@ def extract_commitment_from_evidence(
         )
 
     # Step 4: Prepare source metadata for AI engine
-    channel_type = "pdf" if doc.file_type == "pdf" else "chat_screenshot"
+    if doc.file_type == "pdf":
+        channel_type = "pdf"
+    elif doc.file_type == "txt":
+        channel_type = "email"
+    else:
+        channel_type = "chat_screenshot"
     if metadata is None:
         engine_metadata = SourceMetadata(channel=channel_type)
     else:
@@ -241,7 +256,7 @@ def extract_commitment_from_evidence(
         engine_metadata.extra["filename"] = resolved_filename
 
     # Step 5: Route extracted text through PromiseExtractionEngine
-    engine = PromiseExtractionEngine(provider=provider, fallback_on_error=fallback_on_error)
+    engine = PromiseExtractionEngine(provider=provider, fallback_on_error=fallback_on_error, timeout=timeout)
     result = engine.extract(text=doc.raw_text, metadata=engine_metadata)
 
     # Step 6: Attach evidence traceability metadata
