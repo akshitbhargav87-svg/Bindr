@@ -2,6 +2,7 @@
 """Run contract regressions against an explicit local source tree; never fetch or mutate Git."""
 import argparse
 import os
+import secrets
 from pathlib import Path
 import subprocess
 import sys
@@ -26,7 +27,7 @@ def main():
     for key in list(env):
         if any(word in key.upper() for word in ('API_KEY', 'TOKEN', 'SECRET', 'PASSWORD', 'DATABASE_URL', 'EVIDENCE_', 'AI_', 'META_', 'MODEL_')):
             env.pop(key)
-    env.update(AI_PROVIDER='mock', PYTHONDONTWRITEBYTECODE='1', PYTEST_DISABLE_PLUGIN_AUTOLOAD='1')
+    env.update(AI_PROVIDER='mock', AUTH_SECRET=secrets.token_urlsafe(48), PYTHONDONTWRITEBYTECODE='1', PYTEST_DISABLE_PLUGIN_AUTOLOAD='1')
     # Prevent accidental import from cwd/PYTHONPATH and avoid loading target .env files.
     env.pop('PYTHONPATH', None)
     with tempfile.TemporaryDirectory(prefix='bindr-regression-run-') as work:
