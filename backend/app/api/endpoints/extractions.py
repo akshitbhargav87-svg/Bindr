@@ -16,7 +16,7 @@ from backend.app.schemas.contract import (
 )
 from backend.app.services.storage import storage_service
 from backend.app.services.ai_adapter import (
-    ai_adapter, extract_text_from_file_bytes,
+    ai_adapter,
     AITimeoutError, AIServiceUnavailableError, AIInvalidOutputError,
     AIValidationError, UnreadableEvidenceError
 )
@@ -49,8 +49,9 @@ def create_extraction(
     """
     Process evidence through AI extraction and return a pending review draft.
     Does NOT save commitments until confirmed by user review.
+    Enforces case ownership, rejects duplicate evidence IDs, and forwards raw file bytes to AI pipeline.
     """
-    case = db.query(Case).filter(Case.id == case_id).first()
+    case = db.query(Case).filter(Case.id == case_id, Case.owner_id == session.user_id).first()
     if not case:
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Case {case_id} not found.")
 
@@ -72,6 +73,15 @@ def create_extraction(
             "Extraction requires 1 to 10 unique evidence IDs."
         )
 
+    # Reject duplicate evidence IDs up-front
+    if len(payload.evidence_ids) != len(set(payload.evidence_ids)):
+        _api_error(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "VALIDATION_ERROR",
+            "Duplicate evidence IDs in extraction request.",
+            details=[{"field": "evidence_ids", "message": "Duplicate evidence IDs are not permitted."}]
+        )
+
     # Fetch and verify evidence records belong to this case
     evidence_items = []
     for ev_id in payload.evidence_ids:
@@ -83,16 +93,9 @@ def create_extraction(
                 f"Evidence {ev_id} not found under case {case_id}."
             )
 
-        # Read file bytes from storage and extract text preserving original bytes
+        # Read stored file bytes directly so Kunal's pipeline (DocumentProcessor/RapidOCR) processes images & PDFs
         try:
             file_bytes = storage_service.read_file(ev.storage_key)
-            text = extract_text_from_file_bytes(file_bytes, ev.media_type, filename=ev.filename)
-        except UnreadableEvidenceError as e:
-            _api_error(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "UNREADABLE_EVIDENCE",
-                f"Evidence {ev_id} has no readable text: {e}"
-            )
         except Exception as e:
             _api_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -105,8 +108,6 @@ def create_extraction(
             "filename": ev.filename,
             "media_type": ev.media_type,
             "file_bytes": file_bytes,
-            "text": text,
-            "page_references": None,
             "occurred_at": None
         })
 
@@ -132,7 +133,8 @@ def create_extraction(
         ai_result = ai_adapter.extract_commitments(
             case_id=case_id,
             evidence=evidence_items,
-            existing_commitments=existing_comm_schemas
+            existing_commitments=existing_comm_schemas,
+            merchant_name=case.merchant_name
         )
     except AITimeoutError as e:
         _api_error(status.HTTP_504_GATEWAY_TIMEOUT, "AI_TIMEOUT", str(e))
@@ -144,6 +146,10 @@ def create_extraction(
         _api_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", str(e))
     except Exception as e:
         _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "AI extraction failed.")
+
+    # Validate output schema_version
+    if ai_result.get("schema_version") != 1:
+        _api_error(status.HTTP_502_BAD_GATEWAY, "AI_INVALID_OUTPUT", "Unsupported AI schema version.")
 
     # Persist pending_review draft
     now_iso = utc_now_iso()
@@ -194,12 +200,12 @@ def review_extraction(
     db: Session = Depends(get_db)
 ):
     """
-    Review and confirm or reject an AI extraction draft.
+    Review and confirm or reject an AI extraction draft in an owned case.
     Saves confirmed commitments atomically.
     Repeated reviews on closed drafts return 409 DRAFT_CLOSED.
     Rejects invented candidate IDs and negative refund amounts.
     """
-    case = db.query(Case).filter(Case.id == case_id).first()
+    case = db.query(Case).filter(Case.id == case_id, Case.owner_id == session.user_id).first()
     if not case:
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Case {case_id} not found.")
 

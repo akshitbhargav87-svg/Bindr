@@ -13,6 +13,7 @@ class Case(Base):
     __tablename__ = "cases"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    owner_id = Column(String(100), nullable=False, default="demo-user")
     title = Column(String(200), nullable=False)
     merchant_name = Column(String(200), nullable=False)
     status = Column(String(50), nullable=False, default="open")  # open, overdue, resolved

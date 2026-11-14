@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_db
+from backend.app.core.auth import get_current_session, SessionData
 from backend.app.models.case import Case
 from backend.app.models.timeline import TimelineEvent
 from backend.app.schemas.contract import TimelineResponse, TimelineEventSchema
@@ -27,9 +28,13 @@ def _api_error(status_code: int, code: str, message: str, details: Optional[list
 
 
 @router.get("", response_model=TimelineResponse)
-def get_case_timeline(case_id: str, db: Session = Depends(get_db)):
-    """Retrieve chronological timeline events associated with a case."""
-    case = db.query(Case).filter(Case.id == case_id).first()
+def get_case_timeline(
+    case_id: str,
+    session: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    """Retrieve chronological timeline events associated with an owned case."""
+    case = db.query(Case).filter(Case.id == case_id, Case.owner_id == session.user_id).first()
     if not case:
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Case {case_id} not found.")
 
