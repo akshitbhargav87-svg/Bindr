@@ -3,6 +3,8 @@ import { extractMockCandidates } from './mock-extraction';
 import { validateFile } from './capture-validation';
 import { emptyCaseExtras, type CaseExtras, type CaseEvent } from './case-model';
 import { prepareSeedEvidence } from './seed-evidence';
+import { buildComplaintDocument,eligibleFacts,validateDraftText } from './complaint-document';
+import type { ComplaintSelection } from './complaint-model';
 function fail(code: string, message: string, status = 422): never {throw new ApiError(status,{code,message,details:[],request_id:crypto.randomUUID()});}
 export function createMockApi(seed: CaseDetail[], created: CaseDetail[], today: string) {
   const files = new Map<string,{file:File; text:string; date:string}>();
@@ -19,6 +21,13 @@ export function createMockApi(seed: CaseDetail[], created: CaseDetail[], today: 
   const event=(id:string,kind:CaseEvent['kind'],title:string,note:string,evidenceIds:string[]=[],amountMinor:number|null=null,at=now())=>metadata(id).events.push({id:crypto.randomUUID(),kind,title,note,at,evidenceIds:[...evidenceIds],amountMinor});
   const total=(d:CaseDetail)=>{const values=d.commitments.filter(c=>c.status==='active' && c.currency==='INR' && c.amount_minor!==null);return values.length ? values.reduce((n,c)=>n+c.amount_minor!,0) : null;};
   const noteText=(note:string)=>{if(!note.trim() || note.trim().length>2000)fail('VALIDATION_ERROR','Add a note in 1–2000 characters.');return note.trim();};
+  const complaint=async(id:string,version:number,remedy:string,selection?:ComplaintSelection)=>{
+    await ready;const d=check(id,version);const facts=eligibleFacts(d);
+    if(!facts.some(c=>c.status==='active'))fail('NO_ACTIVE_COMMITMENT','A complaint needs a current confirmed promise.',409);
+    const value=noteText(remedy);const chosen=selection ?? {factIds:facts.map(c=>c.id),evidenceIds:[...new Set(facts.flatMap(c=>c.evidence_ids))],remedy:value};
+    const draft=buildComplaintDocument(d,metadata(id),{...chosen,remedy:value});validateDraftText(draft.subject,draft.body);check(id,version);
+    return {draft,case_version:d.case.version};
+  };
   const api: BindrApi & {
     setCommunicationDate(id: string, value: string): void;
     saveManual(id: string, version: number, items: Terms[], evidenceIds: string[]): Promise<void>;
@@ -28,6 +37,7 @@ export function createMockApi(seed: CaseDetail[], created: CaseDetail[], today: 
     recordOutcome(id:string,version:number,kind:'partial'|'pending',note:string,amountMinor:number|null):Promise<void>;
     manageCase(id:string,version:number,action:'reopen'|'archive'|'restore'|'delete'|'edit',data:{note?:string;company?:string;title?:string;confirmation?:string}):Promise<void>;
     annotate(id:string,version:number,kind:'claim'|'update'|'review',note:string,evidenceIds:string[]):Promise<number>;
+    complaintSelected(id:string,version:number,selection:ComplaintSelection):ReturnType<typeof complaint>;
   } = {
     listCases: async () => {await ready;return {cases:structuredClone(all().map(d=>d.case))};},
     getCase: async id => {await ready;return structuredClone(get(id));},
@@ -146,7 +156,9 @@ export function createMockApi(seed: CaseDetail[], created: CaseDetail[], today: 
       const d=check(id,version);const value=noteText(note);if(!evidenceIds.length || evidenceIds.some(e=>!d.evidence.some(v=>v.id===e)))fail('VALIDATION_ERROR','Choose evidence from this case.');
       event(id,kind,kind==='claim' ? 'Company claims fulfilment · receipt unconfirmed' : kind==='review' ? 'Your revision decision' : 'Company update recorded',value,evidenceIds);d.case.version++;return d.case.version;
     },
-    complaint: async()=>fail('PHASE_NOT_IMPLEMENTED','Complaint drafting arrives in the complaint workflow.',501),
+    complaint:(id,version,remedy)=>complaint(id,version,remedy),
+    // GAP: selected generation inputs are local-only until the contract includes them.
+    complaintSelected:(id,version,selection)=>complaint(id,version,selection.remedy,selection),
   };
   return api;
 }
