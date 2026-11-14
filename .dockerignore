@@ -1,0 +1,16 @@
+.git
+.venv
+.ocr-models
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+**/.env
+**/.env.*
+**/*.db
+**/dist
+**/dist-http
+storage
+work
+outputs
+docs
+tests

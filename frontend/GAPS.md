@@ -1,0 +1,30 @@
+> Historical branch handover. The combined release supersedes session, route, OCR and acceptance-status notes below. See the [current release audit](../docs/RELEASE_AUDIT.md).
+
+# Bindr — remaining integration gaps
+
+Updated 14 Nov 2026. Shared contract v1 from feature/integration: its current text matches the local reference docs after ignoring final newline differences. No backend routes or request fields were invented. Phases 1–6 are implemented; Phase 7's frontend pass is complete, with real backend verification outstanding.
+
+| Gap / owner | What works now | Required production support |
+|---|---|---|
+| Session and live verification — Backend / Integration | Credentials and CSRF transport; typed 401/403; exact API payloads and a tested loopback HTTP flow | Actual backend at port 8000, session/bootstrap, exact Origin/CORS, database/private storage and real authorization tests. The live port refused connection during this pass. |
+| Screenshot/scanned PDF OCR — Backend / AI | Local originals can be previewed/kept; manual entry in demo; HTTP accepts UTF-8 text and text-layer PDF only, 10 MiB per file | OCR/content extraction for PNG/JPEG/scanned PDFs. Do not advertise those as accepted HTTP extraction types yet. |
+| Manual-only commitments — Backend / Integration | Explicit local manual entry, no invented AI quotation | A contracted manual-origin representation and save endpoint. Mock manual extraction_id has no AI draft row and is not a production DB model. |
+| Calendar/status enrichment — Backend | Server open/overdue/resolved status remains authoritative; undated promises are separate; deterministic mock date/calendar logic only | Reference date, per-case timezone/calendar/communication-date fields, rich Due today status and deterministic relative-date/range explanations. Settings keep calendar assumptions fixed; no browser-clock status inference. |
+| Partial/pending outcomes and lifecycle — Backend | Full user-confirmed resolution uses /resolve. Mock partial/pending, reopen with preserved history, archive/restore and typed-ID deletion work | Outcome amounts/events, reopen/edit/archive/restore/delete contracts and persistence. Unsupported management actions are blocked in HTTP mode. |
+| Identity corrections and extra timeline annotations — Backend | Mock company/title corrections with reasons; source-linked reviewed promises; evidence-only HTTP communications | Fields/endpoints for identity edits, user notes, company-claim labels, revision reasoning and communication dates. HTTP keeps originals/confirmed terms without pretending unsupported annotations were saved. |
+| Duplicate detection — Backend / AI | Local mock suggestion, explicit separate-case decision, no automatic merge | Cross-case match/deduplication API and reviewable relation result. |
+| Unknown create response — Backend / Integration | No blind retry. Known uploads can be reconciled by filename/SHA-256; drafts and versions can be refetched | Idempotency keys or request lookup to recover a lost create response without manual backend reconciliation. |
+| Complaint input filtering — Backend / AI | Exact expected_version/requested_remedy payload; editable text; validated source membership; mock selected facts/evidence and partial-receipt context | Selected fact/evidence/tone and receipt-context fields if the team wants those live. HTTP currently uses all reviewed facts; it never sends uncontracted keys. |
+| Saved drafts and document export — Backend / Integration | Tab-local saved/working drafts, explicit review, clipboard copy, local UTF-8 .txt and optional history/filename index | Persistent draft/version storage, PDF/package generation if wanted. Original files are never automatically attached; no signatures/certification or automatic filing is claimed. |
+| Agenda/activity/preferences — Backend if persistence is wanted | Projections of existing GET case/detail data; local read markers; two browser-only in-app presentation preferences with storage-failure fallback | Persistent inbox/read markers, preference API and backend calendar metadata. No push/email/background reminders are implemented. |
+
+## Existing projections and boundaries
+
+- Case summaries, evidence library and activity use bounded-concurrency detail reads for the small unpaginated MVP. No aggregate/library/inbox endpoint was invented. Failed projections do not present partial totals as complete.
+- Demo cases/originals/outcomes/annotations and complaint content live in memory until reload. Only intro/demo-view settings and two boolean preferences use browser storage; read-marker IDs and evidence text/files do not.
+- Deleting a mock case clears its working/saved complaints and prevents late async updates from restoring them. This is local session behavior, not a production storage/deletion guarantee.
+- API success responses receive structural/type/ownership/version checks. Invalid successful mutation responses stay uncertain; there are no automatic POST retries or HTTP-to-fixture fallbacks. Backend schema validation, authorization, transactions, exact quote validation and storage integrity remain backend responsibilities.
+- The temporary HTTP contract test exercises real fetch/multipart/JSON/download transport against deterministic local domain fixtures. It is not proof of FastAPI, Postgres, production authentication, browser CORS/cookie policy, private storage or live AI behavior.
+- Copying/downloading a draft requires current case/version checks and renewed confirmation after edits/options change. Large local histories can exceed the 10,000-character body limit; a concise manual template is available.
+
+See INTEGRATION-HANDOVER.md for the supported-route matrix, exact connected-frontend commands, same-host cookie/CORS setup and pending real-backend test sequence. No backend/shared docs/root edits, Git writes, deployments or messages to teammates were performed.

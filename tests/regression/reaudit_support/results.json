@@ -1,0 +1,860 @@
+{
+  "sources": {
+    "backend": "ac3a916936e2ed551e7e5f5a7b60e61300da674e",
+    "ai": "1b0514002f4535baf2544c5fa505b169065e00cb"
+  },
+  "production_snapshot_blobs_verified": true,
+  "original_test_and_runner_hashes": {
+    "/home/akshit/Desktop/Bindr/tests/regression/test_adapter.py": "bfb2cdf44a600746f2774fb8f7e1184ebc31254d6620a0539d600902f86d60b9",
+    "/home/akshit/Desktop/Bindr/tests/regression/test_screenshot.py": "6c072d7a9d0473f596494fd27dc7a738a3a856b416abed863a23f7e4665fe5b2",
+    "/home/akshit/Desktop/Bindr/tests/regression/test_fixtures.py": "7b9f362befe36bcf88ea9b1e0de12004adae1d2589517dd31184fc53bd913574",
+    "/home/akshit/Desktop/Bindr/tests/regression/test_privacy.py": "dbcb5ee80aa550170585fe6fdc75ba707d226a668a070bd698952cd2938574dd",
+    "/home/akshit/Desktop/Bindr/tests/regression/test_http.py": "e2bc2526443fdcc6801fcfb71479630e9fca71a59e9d10116859843d5018a499",
+    "/home/akshit/Desktop/Bindr/tests/regression/helpers.py": "31bc2c19e715eca51170b32a3453c1c45ae5288bf467ced55b9bbe12c24e7f86",
+    "/home/akshit/Desktop/Bindr/scripts/run_integration_regressions.py": "872bc03a7a18e6114b0cea7688adb13094db06d1de8b1e0610251e109ff4abb1"
+  },
+  "dependencies": {
+    "pytest": "8.4.2",
+    "fastapi": "0.162.7",
+    "starlette": "1.10.0",
+    "sqlalchemy": "2.1.8",
+    "pydantic": "2.14.3",
+    "httpx": "0.28.1",
+    "requests": "2.34.2",
+    "rapidocr": "3.10.0",
+    "onnxruntime": "1.32.0",
+    "pymupdf": "2.1",
+    "Pillow": "13.0.0"
+  },
+  "pip_check": "PASS: no broken requirements",
+  "runs": {
+    "acceptance": [
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_adapter::test_missing_meta_credentials_never_infers_mock",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_adapter::test_quote_is_linked_to_its_actual_evidence[0]",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_adapter::test_quote_is_linked_to_its_actual_evidence[1]",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_fixtures::test_synthetic_fixture_references[new-refund]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_fixtures::test_synthetic_fixture_references[revised-commitment]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_fixtures::test_synthetic_fixture_references[overdue-case]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_fixtures::test_synthetic_fixture_references[resolved-case]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invented_candidate_is_rejected",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_negative_refund_is_rejected[-1]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_negative_refund_is_rejected[-499900]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_duplicate_evidence_ids_rejected_before_inference",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[wrong_version]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[missing_terms]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[unknown_key]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[foreign_source]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[fabricated_quote]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[invalid_confidence]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[duplicate_candidate]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_missing_meta_credentials_http_saves_nothing",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_provider_errors_have_top_level_envelope[AITimeoutError-504-AI_TIMEOUT]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_provider_errors_have_top_level_envelope[AIServiceUnavailableError-503-AI_UNAVAILABLE]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_provider_errors_have_top_level_envelope[AIInvalidOutputError-502-AI_INVALID_OUTPUT]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_review_gate_and_closed_draft[approve]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_review_gate_and_closed_draft[reject]",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_revision_preserves_original_evidence_and_history",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_privacy::test_anonymous_download_denied",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_screenshot::test_real_rapidocr_reads_synthetic_pixels",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_screenshot::test_http_screenshot_real_ocr_mock_ai_then_review",
+        "status": "PENDING",
+        "reason": "PENDING: no verifiable authentication available; server accepts arbitrary nonempty tokens, has no session validation/login or case ownership. A cookie is not proof of identity."
+      }
+    ],
+    "diagnostic": [
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_adapter::test_missing_meta_credentials_never_infers_mock",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_adapter::test_quote_is_linked_to_its_actual_evidence[0]",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_adapter::test_quote_is_linked_to_its_actual_evidence[1]",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_fixtures::test_synthetic_fixture_references[new-refund]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_fixtures::test_synthetic_fixture_references[revised-commitment]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_fixtures::test_synthetic_fixture_references[overdue-case]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_fixtures::test_synthetic_fixture_references[resolved-case]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invented_candidate_is_rejected",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_negative_refund_is_rejected[-1]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_negative_refund_is_rejected[-499900]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_duplicate_evidence_ids_rejected_before_inference",
+        "status": "FAIL",
+        "reason": "assert 201 == 422\n +  where 201 = <Response [201 Created]>.status_code"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[wrong_version]",
+        "status": "FAIL",
+        "reason": "assert 201 == 502\n +  where 201 = <Response [201 Created]>.status_code"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[missing_terms]",
+        "status": "FAIL",
+        "reason": "assert 201 == 502\n +  where 201 = <Response [201 Created]>.status_code"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[unknown_key]",
+        "status": "FAIL",
+        "reason": "assert 201 == 502\n +  where 201 = <Response [201 Created]>.status_code"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[foreign_source]",
+        "status": "FAIL",
+        "reason": "assert 201 == 502\n +  where 201 = <Response [201 Created]>.status_code"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[fabricated_quote]",
+        "status": "FAIL",
+        "reason": "assert 201 == 502\n +  where 201 = <Response [201 Created]>.status_code"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[invalid_confidence]",
+        "status": "FAIL",
+        "reason": "assert 201 == 502\n +  where 201 = <Response [201 Created]>.status_code"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_invalid_ai_boundary_output_saves_no_draft[duplicate_candidate]",
+        "status": "FAIL",
+        "reason": "assert 201 == 502\n +  where 201 = <Response [201 Created]>.status_code"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_missing_meta_credentials_http_saves_nothing",
+        "status": "FAIL",
+        "reason": "assert 500 == 503\n +  where 500 = <Response [500 Internal Server Error]>.status_code"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_provider_errors_have_top_level_envelope[AITimeoutError-504-AI_TIMEOUT]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_provider_errors_have_top_level_envelope[AIServiceUnavailableError-503-AI_UNAVAILABLE]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_provider_errors_have_top_level_envelope[AIInvalidOutputError-502-AI_INVALID_OUTPUT]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_review_gate_and_closed_draft[approve]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_review_gate_and_closed_draft[reject]",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_http::test_revision_preserves_original_evidence_and_history",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_privacy::test_anonymous_download_denied",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_screenshot::test_real_rapidocr_reads_synthetic_pixels",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "home.akshit.Desktop.Bindr.tests.regression.test_screenshot::test_http_screenshot_real_ocr_mock_ai_then_review",
+        "status": "FAIL",
+        "reason": "AssertionError: HTTP extraction bypassed RapidOCR\nassert []"
+      }
+    ],
+    "backend": [
+      {
+        "test": "backend.app.tests.test_ai_adapter::test_ai_adapter_input_validation",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_ai_adapter::test_ai_adapter_mock_fallback_contract_compliance",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_ai_adapter::test_ai_adapter_missing_meta_key_raises_ai_unavailable_no_silent_mock",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "backend.app.tests.test_ai_adapter::test_ai_adapter_explicit_mock_provider",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "backend.app.tests.test_ai_adapter::test_ai_adapter_provider_selection_meta",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_ai_adapter::test_ai_adapter_meta_connection_error_mapping",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "backend.app.tests.test_ai_adapter::test_ai_adapter_meta_rate_limit_error_mapping",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "backend.app.tests.test_ai_adapter::test_ai_adapter_meta_parsing_error_mapping",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "backend.app.tests.test_ai_adapter::test_ai_adapter_verbatim_quote_validation",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "backend.app.tests.test_ai_adapter::test_ai_adapter_timeout_mapping",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "backend.app.tests.test_cases::test_create_and_get_case",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_cases::test_get_case_not_found",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_commitments::test_commitment_lifecycle_and_revision_preservation",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_upload_valid_png",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_upload_valid_jpeg",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_upload_valid_pdf",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_upload_valid_text",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_upload_unsupported_format",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_upload_disguised_file",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_upload_zero_bytes",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_upload_oversized_file",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_upload_invalid_case_id",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_upload_version_conflict",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_filename_path_traversal_sanitized",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_evidence::test_evidence_retrieval_and_content_streaming",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_extractions::test_extraction_creates_draft_without_saving_commitments",
+        "status": "FAIL",
+        "reason": "assert 500 == 201\n +  where 500 = <Response [500 Internal Server Error]>.status_code"
+      },
+      {
+        "test": "backend.app.tests.test_extractions::test_extraction_missing_evidence_id",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_extractions::test_extraction_evidence_case_mismatch",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_extractions::test_extraction_ai_timeout_handling",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_extractions::test_extraction_ai_unavailable_handling",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_extractions::test_extraction_ai_invalid_output_handling",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_extractions::test_user_confirmation_and_commitment_persistence",
+        "status": "FAIL",
+        "reason": "assert 500 == 201\n +  where 500 = <Response [500 Internal Server Error]>.status_code"
+      },
+      {
+        "test": "backend.app.tests.test_extractions::test_user_rejection_closes_draft_without_saving",
+        "status": "FAIL",
+        "reason": "KeyError: 'extraction'"
+      },
+      {
+        "test": "backend.app.tests.test_extractions::test_repeated_review_fails_with_draft_closed",
+        "status": "FAIL",
+        "reason": "KeyError: 'extraction'"
+      },
+      {
+        "test": "backend.app.tests.test_extractions::test_user_confirms_revision_superseding_previous",
+        "status": "FAIL",
+        "reason": "KeyError: 'extraction'"
+      },
+      {
+        "test": "backend.app.tests.test_health::test_health_endpoint",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_health::test_root_endpoint",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_integration_defects::test_anonymous_evidence_access_rejected",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_integration_defects::test_anonymous_upload_rejected",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_integration_defects::test_error_response_conforms_to_canonical_envelope",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_integration_defects::test_quotation_attributed_to_wrong_file_is_rejected",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_integration_defects::test_quotation_validated_per_individual_evidence_not_concatenated",
+        "status": "FAIL",
+        "reason": "TypeError: extract_commitment_from_evidence() got an unexpected keyword argument 'evidence'"
+      },
+      {
+        "test": "backend.app.tests.test_integration_defects::test_review_rejects_invented_candidate_id",
+        "status": "FAIL",
+        "reason": "assert 500 == 201\n +  where 500 = <Response [500 Internal Server Error]>.status_code"
+      },
+      {
+        "test": "backend.app.tests.test_integration_defects::test_review_rejects_negative_amounts",
+        "status": "FAIL",
+        "reason": "KeyError: 'extraction'"
+      },
+      {
+        "test": "backend.app.tests.test_integration_defects::test_review_rejects_zero_or_negative_refund",
+        "status": "FAIL",
+        "reason": "KeyError: 'extraction'"
+      },
+      {
+        "test": "backend.app.tests.test_integration_defects::test_review_rejects_duplicate_candidate_in_items",
+        "status": "FAIL",
+        "reason": "KeyError: 'extraction'"
+      },
+      {
+        "test": "backend.app.tests.test_integration_defects::test_no_silent_mock_fallback_when_meta_provider_unconfigured",
+        "status": "FAIL",
+        "reason": "assert 500 == 503\n +  where 500 = <Response [500 Internal Server Error]>.status_code"
+      },
+      {
+        "test": "backend.app.tests.test_integration_defects::test_end_to_end_upload_ai_review_workflow",
+        "status": "FAIL",
+        "reason": "assert 500 == 201\n +  where 500 = <Response [500 Internal Server Error]>.status_code"
+      },
+      {
+        "test": "backend.app.tests.test_timeline::test_timeline_lifecycle",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.tests.test_timeline::test_timeline_invalid_case",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      }
+    ],
+    "ai": [
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_blank_image_handling_without_text",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_corrupt_pdf_rejected",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_empty_evidence_requires_user_confirmation",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_empty_file_rejected",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_evidence_to_promise_pipeline_traceability",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_image_extraction_with_injected_ocr_handler",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_meta_strict_mode_no_silent_mock_fallback",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_real_screenshot_ocr_without_mock",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_real_screenshot_pipeline_end_to_end",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_scanned_or_blank_pdf_flags_warning",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_text_based_pdf_extraction_multi_page",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_txt_evidence_extraction",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_txt_evidence_pipeline_integration",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_document_processing.TestDocumentProcessing::test_unsupported_file_format_rejected",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_deadline_duration_not_calculated",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_malformed_response_handling_raises_or_fallbacks",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_meta_provider_http_error_mappings",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_meta_provider_missing_credentials",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_meta_provider_successful_extraction",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_no_fabricated_confidence_score",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_null_for_unknown_information",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_synthetic_ambiguous_communication",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_synthetic_no_explicit_promise",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_synthetic_refund_with_deadline",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_synthetic_replacement_promise",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      },
+      {
+        "test": "backend.app.ai.tests.test_extraction.TestPromiseExtractionEngine::test_verbatim_quotation_mismatch_triggers_confirmation",
+        "status": "PASS",
+        "reason": "All assertions passed"
+      }
+    ],
+    "security": [
+      {
+        "test": "bindr-reaudit-delivery.tests.regression.reaudit_support.security_probes::test_unregistered_random_credentials_denied[cookie]",
+        "status": "FAIL",
+        "reason": "AssertionError: Unregistered random credentials must not authorize evidence access\nassert 200 == 401\n +  where 200 = <Response [200 OK]>.status_code"
+      },
+      {
+        "test": "bindr-reaudit-delivery.tests.regression.reaudit_support.security_probes::test_unregistered_random_credentials_denied[bearer]",
+        "status": "FAIL",
+        "reason": "AssertionError: Unregistered random credentials must not authorize evidence access\nassert 200 == 401\n +  where 200 = <Response [200 OK]>.status_code"
+      },
+      {
+        "test": "bindr-reaudit-delivery.tests.regression.reaudit_support.security_probes::test_anonymous_case_routes_denied[GET]",
+        "status": "FAIL",
+        "reason": "AssertionError: Domain case routes require authentication\nassert 200 == 401\n +  where 200 = <Response [200 OK]>.status_code"
+      },
+      {
+        "test": "bindr-reaudit-delivery.tests.regression.reaudit_support.security_probes::test_anonymous_case_routes_denied[POST]",
+        "status": "FAIL",
+        "reason": "AssertionError: Domain case routes require authentication\nassert 201 == 401\n +  where 201 = <Response [201 Created]>.status_code"
+      },
+      {
+        "test": "bindr-reaudit-delivery.tests.regression.reaudit_support.security_probes::test_case_ownership_is_represented",
+        "status": "FAIL",
+        "reason": "AssertionError: Contract cases.owner_id is absent; per-user case ownership cannot be enforced\nassert 'owner_id' in <sqlalchemy.sql.base.ReadOnlyColumnCollection object at 0x7e03903ae200>\n +  where <sqlalchemy.sql.base.ReadOnlyColumnCollection object at 0x7e03903ae200> = Table('cases', MetaData(), Column('id', String(length=36), table=<cases>, primary_key=True, nullable=False, default=Ca..., table=<cases>, nullable=False, default=CallableColumnDefault(<function utc_now_iso at 0x7e039039d8a0>)), schema=None).columns\n +    where Table('cases', MetaData(), Column('id', String(length=36), table=<cases>, primary_key=True, nullable=False, default=Ca"
+      },
+      {
+        "test": "bindr-reaudit-delivery.tests.regression.reaudit_support.security_probes::test_anonymous_direct_commitment_creation_denied",
+        "status": "FAIL",
+        "reason": "AssertionError: Alternate commitment route must not bypass authentication/review\nassert 201 == 401\n +  where 201 = <Response [201 Created]>.status_code"
+      }
+    ]
+  },
+  "comparison": {
+    "test_missing_meta_credentials_never_infers_mock": {
+      "old": "PASS",
+      "new": "FAIL"
+    },
+    "test_quote_is_linked_to_its_actual_evidence[0]": {
+      "old": "PASS",
+      "new": "FAIL"
+    },
+    "test_quote_is_linked_to_its_actual_evidence[1]": {
+      "old": "FAIL",
+      "new": "FAIL"
+    },
+    "test_synthetic_fixture_references[new-refund]": {
+      "old": "PASS",
+      "new": "PASS"
+    },
+    "test_synthetic_fixture_references[revised-commitment]": {
+      "old": "PASS",
+      "new": "PASS"
+    },
+    "test_synthetic_fixture_references[overdue-case]": {
+      "old": "PASS",
+      "new": "PASS"
+    },
+    "test_synthetic_fixture_references[resolved-case]": {
+      "old": "PASS",
+      "new": "PASS"
+    },
+    "test_invented_candidate_is_rejected": {
+      "old": "FAIL",
+      "new": "PASS"
+    },
+    "test_negative_refund_is_rejected[-1]": {
+      "old": "FAIL",
+      "new": "PASS"
+    },
+    "test_negative_refund_is_rejected[-499900]": {
+      "old": "FAIL",
+      "new": "PASS"
+    },
+    "test_duplicate_evidence_ids_rejected_before_inference": {
+      "old": "FAIL",
+      "new": "FAIL"
+    },
+    "test_invalid_ai_boundary_output_saves_no_draft[wrong_version]": {
+      "old": "FAIL",
+      "new": "FAIL"
+    },
+    "test_invalid_ai_boundary_output_saves_no_draft[missing_terms]": {
+      "old": "FAIL",
+      "new": "FAIL"
+    },
+    "test_invalid_ai_boundary_output_saves_no_draft[unknown_key]": {
+      "old": "FAIL",
+      "new": "FAIL"
+    },
+    "test_invalid_ai_boundary_output_saves_no_draft[foreign_source]": {
+      "old": "FAIL",
+      "new": "FAIL"
+    },
+    "test_invalid_ai_boundary_output_saves_no_draft[fabricated_quote]": {
+      "old": "FAIL",
+      "new": "FAIL"
+    },
+    "test_invalid_ai_boundary_output_saves_no_draft[invalid_confidence]": {
+      "old": "FAIL",
+      "new": "FAIL"
+    },
+    "test_invalid_ai_boundary_output_saves_no_draft[duplicate_candidate]": {
+      "old": "FAIL",
+      "new": "FAIL"
+    },
+    "test_missing_meta_credentials_http_saves_nothing": {
+      "old": "FAIL",
+      "new": "FAIL"
+    },
+    "test_provider_errors_have_top_level_envelope[AITimeoutError-504-AI_TIMEOUT]": {
+      "old": "FAIL",
+      "new": "PASS"
+    },
+    "test_provider_errors_have_top_level_envelope[AIServiceUnavailableError-503-AI_UNAVAILABLE]": {
+      "old": "FAIL",
+      "new": "PASS"
+    },
+    "test_provider_errors_have_top_level_envelope[AIInvalidOutputError-502-AI_INVALID_OUTPUT]": {
+      "old": "FAIL",
+      "new": "PASS"
+    },
+    "test_review_gate_and_closed_draft[approve]": {
+      "old": "FAIL",
+      "new": "PASS"
+    },
+    "test_review_gate_and_closed_draft[reject]": {
+      "old": "FAIL",
+      "new": "PASS"
+    },
+    "test_revision_preserves_original_evidence_and_history": {
+      "old": "PASS",
+      "new": "PASS"
+    },
+    "test_anonymous_download_denied": {
+      "old": "FAIL",
+      "new": "PASS"
+    },
+    "test_real_rapidocr_reads_synthetic_pixels": {
+      "old": "PASS",
+      "new": "PASS"
+    },
+    "test_http_screenshot_real_ocr_mock_ai_then_review": {
+      "old": "FAIL",
+      "new": "FAIL"
+    }
+  },
+  "real_http": {
+    "transport": "real loopback HTTP",
+    "authentication": "UNVERIFIED; synthetic random session is not valid identity",
+    "status": "FAIL",
+    "case_create_status": 201,
+    "anonymous_upload_status": 401,
+    "unregistered_session_upload_status": 201,
+    "extraction_status": 422,
+    "extraction_error_code": "UNREADABLE_EVIDENCE",
+    "failed_stage": "extraction",
+    "review": "PENDING: extraction failed; no draft exists",
+    "ocr_calls": 0,
+    "mock_ai_calls": 0
+  }
+}
