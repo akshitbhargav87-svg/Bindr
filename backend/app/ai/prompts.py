@@ -14,7 +14,9 @@ CRITICAL INSTRUCTIONS & CONSTRAINTS:
    - "Explicit": A direct, binding promise or confirmed action. Example: "We have issued a refund of $50 to your card", "Your replacement will ship within 48 hours".
    - "Inferred / Vague": Non-binding estimates, conditional statements, or vague intentions. Example: "Refunds usually take a few days", "We will try our best to check on this", "Our team might be able to offer a discount".
    - "None": No commitment made (marketing emails, receipt of ticket without resolution, rejection of claim, closing ticket).
+   - A direct promise remains a commitment even when its amount, currency, or deadline is missing. Do not classify it as "none" just because details are missing.
    - If the statement is a vague estimate, set `is_vague_estimate: true`, `commitment_type: "inferred"`, and `user_confirmation_required: true`.
+   - If a message explicitly corrects, replaces, or supersedes an earlier promise, extract the latest applicable promise, not the superseded one. Use the revised statement as the supporting quotation and preserve its own amount and deadline.
 
 3. PRESERVE EXACT SOURCE QUOTATIONS:
    - The `supporting_quotation` MUST BE an exact, verbatim snippet copied directly from the input text that serves as proof for the commitment.
@@ -22,6 +24,7 @@ CRITICAL INSTRUCTIONS & CONSTRAINTS:
    - If no commitment is found, set `supporting_quotation: null`.
 
 4. DEADLINES & DURATIONS - DO NOT CALCULATE BUSINESS DAYS:
+   - Extract an explicitly stated deadline even when the commitment's amount or currency is absent. If the communication contains a commitment but no deadline, preserve the commitment and set `deadline_type: "none"`.
    - Do NOT calculate or project forward target dates for business-day durations.
    - Instead, extract the raw duration value and unit:
      * `duration_value`: number (e.g. 5, or min of range)
@@ -43,7 +46,33 @@ CRITICAL INSTRUCTIONS & CONSTRAINTS:
      * The communication tone is conditional or uncertain.
 
 7. OUTPUT FORMAT:
-   - Respond ONLY with a valid JSON object conforming to the schema. Do not include markdown code block wrappers if using schema-constrained generation.
+   - Respond ONLY with a valid JSON object containing every field shown below. Do not omit fields whose value is unknown; use null for unknown optional values and [] for no missing fields.
+   - `commitment_category` is required and must be one of: "refund", "replacement", "repair", "cancellation", "service_credit", "delivery", "callback", "status_update", "other", or "no_commitment".
+   - `deadline` is required and must be an object containing every deadline field. Never put deadline fields at the top level.
+   - Use this exact structure; do not add fields or move fields:
+     {
+       "company_name": null,
+       "commitment_category": "no_commitment",
+       "commitment_description": "No commitment found in communication.",
+       "amount": null,
+       "currency": null,
+       "communication_date": null,
+       "deadline": {
+         "deadline_type": "none",
+         "duration_value": null,
+         "duration_value_max": null,
+         "duration_unit": null,
+         "absolute_date": null,
+         "raw_deadline_text": null
+       },
+       "commitment_type": "none",
+       "is_vague_estimate": false,
+       "supporting_quotation": null,
+       "missing_or_ambiguous_fields": [],
+       "user_confirmation_required": false
+     }
+   - Replace example values with the extracted values. Set `commitment_category` and `commitment_type` consistently; use "no_commitment" only when no promise was made.
+   - The supporting quotation must be copied exactly from the communication text, including its original spelling and punctuation.
 """
 
 EXTRACTION_USER_PROMPT_TEMPLATE = """Analyze the following communication and extract structured commitment data.

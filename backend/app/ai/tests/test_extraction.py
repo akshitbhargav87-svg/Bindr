@@ -50,6 +50,39 @@ class TestPromiseExtractionEngine(unittest.TestCase):
         self.mock_provider = MockAIProvider()
         self.engine = PromiseExtractionEngine(provider=self.mock_provider)
 
+    def _complete_meta_payload(self, **overrides):
+        payload = {
+            "company_name": "Acme Corp",
+            "commitment_category": "refund",
+            "commitment_description": "Refund of $45 within 5 business days.",
+            "amount": 45.0,
+            "currency": "USD",
+            "communication_date": None,
+            "deadline": {
+                "deadline_type": "duration",
+                "duration_value": 5.0,
+                "duration_value_max": None,
+                "duration_unit": "business_days",
+                "absolute_date": None,
+                "raw_deadline_text": "within 5 business days",
+            },
+            "commitment_type": "explicit",
+            "is_vague_estimate": False,
+            "supporting_quotation": "We will refund $45 within 5 business days.",
+            "missing_or_ambiguous_fields": [],
+            "user_confirmation_required": False,
+        }
+        payload.update(overrides)
+        return payload
+
+    def _set_meta_response(self, mock_post, payload):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": json.dumps(payload)}}]
+        }
+        mock_post.return_value = mock_response
+
     # -------------------------------------------------------------------------
     # Synthetic Scenario 1: Refund with a deadline
     # -------------------------------------------------------------------------
@@ -265,7 +298,9 @@ class TestPromiseExtractionEngine(unittest.TestCase):
             "deadline": {
                 "deadline_type": "duration",
                 "duration_value": 3.0,
+                "duration_value_max": None,
                 "duration_unit": "business_days",
+                "absolute_date": None,
                 "raw_deadline_text": "within 3 business days"
             },
             "commitment_type": "explicit",
@@ -323,6 +358,168 @@ class TestPromiseExtractionEngine(unittest.TestCase):
         mock_post.return_value = mock_resp_429
         with self.assertRaises(AIRateLimitError):
             provider.extract_commitment("Sample text")
+
+    @patch("backend.app.ai.providers.meta.requests.post")
+    def test_meta_provider_revised_commitment_and_prompt_guidance(self, mock_post):
+        """Verify revised promises are represented by the latest explicit commitment."""
+        source_text = (
+            "Earlier we promised a $30 refund within 3 days. "
+            "Correction: we will refund $45 within 5 business days instead; "
+            "this replaces our earlier promise."
+        )
+        revised_quote = (
+            "Correction: we will refund $45 within 5 business days instead; "
+            "this replaces our earlier promise."
+        )
+        response_content = json.dumps({
+            "company_name": "Acme Corp",
+            "commitment_category": "refund",
+            "commitment_description": "Refund of $45 within 5 business days.",
+            "amount": 45.0,
+            "currency": "USD",
+            "communication_date": None,
+            "deadline": {
+                "deadline_type": "duration",
+                "duration_value": 5.0,
+                "duration_value_max": None,
+                "duration_unit": "business_days",
+                "absolute_date": None,
+                "raw_deadline_text": "within 5 business days",
+            },
+            "commitment_type": "explicit",
+            "is_vague_estimate": False,
+            "supporting_quotation": revised_quote,
+            "missing_or_ambiguous_fields": [],
+            "user_confirmation_required": False,
+        })
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": response_content}}]
+        }
+        mock_post.return_value = mock_response
+
+        provider = MetaProvider(api_key="synthetic-test-key")
+        result = provider.extract_commitment(source_text)
+
+        self.assertEqual(result.amount, 45.0)
+        self.assertEqual(result.commitment_category, CommitmentCategory.REFUND)
+        self.assertEqual(result.deadline.duration_value, 5.0)
+        self.assertEqual(result.deadline.duration_unit, "business_days")
+        self.assertEqual(result.supporting_quotation, revised_quote)
+        self.assertIn(result.supporting_quotation, source_text)
+
+        system_prompt = mock_post.call_args.kwargs["json"]["messages"][0]["content"]
+        self.assertIn("latest applicable promise", system_prompt)
+        self.assertIn('Do not classify it as "none"', system_prompt)
+
+    @patch("backend.app.ai.providers.meta.requests.post")
+    def test_meta_provider_normalizes_legacy_flat_deadline(self, mock_post):
+        source_text = "Acme Corp will refund $45 within 5 business days."
+        payload = self._complete_meta_payload(supporting_quotation=source_text)
+        deadline = payload.pop("deadline")
+        payload.update(deadline)
+        self._set_meta_response(mock_post, payload)
+
+        result = MetaProvider(api_key="synthetic-test-key").extract_commitment(source_text)
+
+        self.assertEqual(result.commitment_category, CommitmentCategory.REFUND)
+        self.assertEqual(result.deadline.deadline_type, DeadlineType.DURATION)
+        self.assertEqual(result.deadline.duration_value, 5.0)
+        self.assertEqual(result.deadline.duration_unit, "business_days")
+        self.assertEqual(result.supporting_quotation, source_text)
+
+    @patch("backend.app.ai.providers.meta.requests.post")
+    def test_meta_provider_rejects_missing_category_and_deadline(self, mock_post):
+        source_text = "Acme Corp will refund $45 within 5 business days."
+        provider = MetaProvider(api_key="synthetic-test-key")
+
+        missing_category = self._complete_meta_payload(supporting_quotation=source_text)
+        missing_category.pop("commitment_category")
+        self._set_meta_response(mock_post, missing_category)
+        with self.assertRaises(AIResponseParsingError):
+            provider.extract_commitment(source_text)
+
+        missing_deadline = self._complete_meta_payload(supporting_quotation=source_text)
+        missing_deadline.pop("deadline")
+        self._set_meta_response(mock_post, missing_deadline)
+        with self.assertRaises(AIResponseParsingError):
+            provider.extract_commitment(source_text)
+
+    @patch("backend.app.ai.providers.meta.requests.post")
+    def test_meta_provider_rejects_contradictory_or_incomplete_output(self, mock_post):
+        source_text = "Acme Corp will refund $45 within 5 business days."
+        provider = MetaProvider(api_key="synthetic-test-key")
+
+        cases = [
+            self._complete_meta_payload(
+                supporting_quotation=source_text,
+                commitment_type="none",
+            ),
+            self._complete_meta_payload(
+                supporting_quotation=source_text,
+                deadline={
+                    "deadline_type": "duration",
+                    "duration_value": 5.0,
+                    "duration_value_max": None,
+                    "duration_unit": None,
+                    "absolute_date": None,
+                    "raw_deadline_text": "within 5 business days",
+                },
+            ),
+            self._complete_meta_payload(
+                supporting_quotation=source_text,
+                deadline={
+                    "deadline_type": "none",
+                    "duration_value": 5.0,
+                    "duration_value_max": None,
+                    "duration_unit": "business_days",
+                    "absolute_date": None,
+                    "raw_deadline_text": "within 5 business days",
+                },
+            ),
+        ]
+        for payload in cases:
+            with self.subTest(payload=payload):
+                self._set_meta_response(mock_post, payload)
+                with self.assertRaises(AIResponseParsingError):
+                    provider.extract_commitment(source_text)
+
+        mixed_deadline = self._complete_meta_payload(supporting_quotation=source_text)
+        mixed_deadline["duration_value"] = 5.0
+        self._set_meta_response(mock_post, mixed_deadline)
+        with self.assertRaises(AIResponseParsingError):
+            provider.extract_commitment(source_text)
+
+    @patch("backend.app.ai.providers.meta.requests.post")
+    def test_meta_provider_preserves_missing_currency_as_null(self, mock_post):
+        source_text = "Acme Corp will refund 120.50 within 5 business days."
+        payload = self._complete_meta_payload(
+            amount=120.5,
+            currency=None,
+            supporting_quotation=source_text,
+            missing_or_ambiguous_fields=["currency"],
+            user_confirmation_required=True,
+        )
+        self._set_meta_response(mock_post, payload)
+
+        result = MetaProvider(api_key="synthetic-test-key").extract_commitment(source_text)
+
+        self.assertEqual(result.amount, 120.5)
+        self.assertIsNone(result.currency)
+        self.assertEqual(result.deadline.duration_value, 5.0)
+        self.assertTrue(result.user_confirmation_required)
+
+    @patch("backend.app.ai.providers.meta.requests.post")
+    def test_meta_provider_rejects_non_verbatim_quotation(self, mock_post):
+        source_text = "Acme Corp will refund $45 within 5 business days."
+        payload = self._complete_meta_payload(
+            supporting_quotation="Acme Corp will refund $45 in 5 business days."
+        )
+        self._set_meta_response(mock_post, payload)
+
+        with self.assertRaises(AIResponseParsingError):
+            MetaProvider(api_key="synthetic-test-key").extract_commitment(source_text)
 
 
 if __name__ == "__main__":
