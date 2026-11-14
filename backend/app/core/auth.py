@@ -18,9 +18,41 @@ import os
 from typing import Optional, Tuple
 from fastapi import Request, HTTPException, status
 from pydantic import BaseModel
+from backend.app.core.config import settings
 
-# Auth secret key from environment or secure default
-AUTH_SECRET = os.getenv("AUTH_SECRET", "bindr_secret_hmac_key_2026_vihaan_x")
+INSECURE_SECRETS = {
+    "bindr_secret_hmac_key_2026_vihaan_x",
+    "secret",
+    "password",
+    "default",
+    "change-me",
+    "changeme",
+    "12345678901234567890123456789012"
+}
+
+
+def get_auth_secret() -> str:
+    """
+    Returns the HMAC signing secret.
+    In deployed/production environments, strictly enforces a configured secret
+    of at least 32 characters and forbids predictable fallbacks.
+    """
+    env = (settings.ENVIRONMENT or os.getenv("ENVIRONMENT", "development")).lower().strip()
+    is_deployed = env in ("production", "prod", "staging", "deployed")
+    secret = settings.AUTH_SECRET or os.getenv("AUTH_SECRET")
+
+    if is_deployed:
+        if not secret or len(secret.strip()) < 32 or secret.strip() in INSECURE_SECRETS:
+            raise RuntimeError(
+                "In deployed environments, a strong AUTH_SECRET of at least 32 characters "
+                "must be configured via environment variables. Predictable fallbacks are strictly forbidden."
+            )
+        return secret.strip()
+
+    # Development / Testing fallback
+    if secret and secret.strip():
+        return secret.strip()
+    return "bindr_dev_secret_hmac_key_min_32_characters_long_2026"
 
 
 class SessionData(BaseModel):
@@ -32,16 +64,21 @@ class SessionData(BaseModel):
 
 def sign_session_token(session_id: str, user_id: str, timestamp: int) -> str:
     """Creates a tamper-proof HMAC-SHA256 signed session token."""
+    secret = get_auth_secret()
     payload = f"{session_id}:{user_id}:{timestamp}"
-    sig = hmac.new(AUTH_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    sig = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return f"{session_id}.{user_id}.{timestamp}.{sig}"
 
 
 def verify_session_token(token: str) -> Optional[Tuple[str, str]]:
     """
-    Verifies token signature.
-    Returns (session_id, user_id) if valid, None if forged or tampered.
+    Verifies token signature, lifetime, and issuance timestamps.
+    Returns (session_id, user_id) if valid.
+    Returns None if forged, tampered, expired, or issued in the future.
     """
+    if not token or not isinstance(token, str):
+        return None
+
     parts = token.strip().split(".")
     if len(parts) != 4:
         return None
@@ -52,10 +89,24 @@ def verify_session_token(token: str) -> Optional[Tuple[str, str]]:
     except ValueError:
         return None
 
+    secret = get_auth_secret()
     expected_payload = f"{session_id}:{user_id}:{ts}"
-    expected_sig = hmac.new(AUTH_SECRET.encode(), expected_payload.encode(), hashlib.sha256).hexdigest()
+    expected_sig = hmac.new(secret.encode(), expected_payload.encode(), hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(provided_sig, expected_sig):
+        return None
+
+    # Enforce lifetime and timestamp validity
+    now = int(time.time())
+    clock_skew = settings.CLOCK_SKEW_TOLERANCE_SECONDS
+    max_lifetime = settings.SESSION_LIFETIME_SECONDS
+
+    # 1. Reject future-issued timestamps beyond clock skew
+    if ts > now + clock_skew:
+        return None
+
+    # 2. Reject expired session tokens
+    if (now - ts) > max_lifetime:
         return None
 
     return session_id, user_id
@@ -63,7 +114,8 @@ def verify_session_token(token: str) -> Optional[Tuple[str, str]]:
 
 def generate_csrf_token(session_id: str) -> str:
     """Derives a deterministic CSRF token for a given session."""
-    return hmac.new(AUTH_SECRET.encode(), f"csrf:{session_id}".encode(), hashlib.sha256).hexdigest()
+    secret = get_auth_secret()
+    return hmac.new(secret.encode(), f"csrf:{session_id}".encode(), hashlib.sha256).hexdigest()
 
 
 def create_authenticated_session(user_id: str = "demo-user") -> Tuple[str, str]:
@@ -133,8 +185,26 @@ def get_current_session(request: Request) -> SessionData:
     session_id, user_id = verified
     expected_csrf = generate_csrf_token(session_id)
 
-    # 4. For cookie-based mutating requests, enforce CSRF protection per API_CONTRACT
+    # 4. For cookie-based mutating requests, enforce Origin and CSRF protection per API_CONTRACT
     if is_cookie_auth and request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        origin = request.headers.get("Origin")
+        if origin:
+            normalized_origin = origin.rstrip("/")
+            allowed_origins = [o.rstrip("/") for o in settings.CORS_ORIGINS]
+            if normalized_origin not in allowed_origins:
+                req_id = str(uuid.uuid4())
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "error": {
+                            "code": "CSRF_FAILED",
+                            "message": f"Unauthorized cross-origin request from origin '{origin}'.",
+                            "details": [],
+                            "request_id": req_id
+                        }
+                    }
+                )
+
         csrf_header = request.headers.get("X-CSRF-Token")
         if not csrf_header or not hmac.compare_digest(csrf_header.strip(), expected_csrf):
             req_id = str(uuid.uuid4())

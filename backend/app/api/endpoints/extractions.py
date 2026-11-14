@@ -17,6 +17,7 @@ from backend.app.schemas.contract import (
 from backend.app.services.storage import storage_service
 from backend.app.services.ai_adapter import (
     ai_adapter,
+    validate_ai_extraction_output,
     AITimeoutError, AIServiceUnavailableError, AIInvalidOutputError,
     AIValidationError, UnreadableEvidenceError
 )
@@ -128,7 +129,7 @@ def create_extraction(
         for c in case.commitments
     ]
 
-    # Invoke AI adapter boundary
+    # Invoke AI adapter boundary and strictly validate candidates against AI_CONTRACT
     try:
         ai_result = ai_adapter.extract_commitments(
             case_id=case_id,
@@ -136,6 +137,7 @@ def create_extraction(
             existing_commitments=existing_comm_schemas,
             merchant_name=case.merchant_name
         )
+        validate_ai_extraction_output(ai_result, evidence_items, existing_comm_schemas)
     except AITimeoutError as e:
         _api_error(status.HTTP_504_GATEWAY_TIMEOUT, "AI_TIMEOUT", str(e))
     except AIServiceUnavailableError as e:
@@ -146,10 +148,6 @@ def create_extraction(
         _api_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", str(e))
     except Exception as e:
         _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "AI extraction failed.")
-
-    # Validate output schema_version
-    if ai_result.get("schema_version") != 1:
-        _api_error(status.HTTP_502_BAD_GATEWAY, "AI_INVALID_OUTPUT", "Unsupported AI schema version.")
 
     # Persist pending_review draft
     now_iso = utc_now_iso()
