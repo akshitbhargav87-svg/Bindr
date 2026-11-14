@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CalendarClock, FileText, FolderOpen, HelpCircle, Link2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarClock, FileText, FolderOpen, HelpCircle } from 'lucide-react';
 import { useWorkspace } from '../state/Workspace';
 import { PageHeading, WorkspaceGate } from '../components/workspace/WorkspaceStates';
 import { CompanyMark } from '../components/workspace/CaseList';
@@ -9,10 +9,6 @@ import { date, money } from '../lib/format';
 export function CaseSummary() {
   const w = useWorkspace(); const {caseId} = useParams(); const item = w.data?.cases.find(c => c.id === caseId);
   return <WorkspaceGate><Link to="/app/cases" className="workspace-back"><ArrowLeft size={17}/> All cases</Link>{item ? <><PageHeading title={item.company} description={item.title}/><section className="case-summary"><div className="case-summary-brand"><CompanyMark name={item.company}/><span>Case summary</span><StatusLabel status={item.status}/></div><dl><div><dt>Promise</dt><dd>{item.title}</dd></div><div><dt>Amount</dt><dd>{money(item.amountMinor, item.currency ?? 'INR')}</dd></div><div><dt>Confirmed deadline</dt><dd>{date(item.dueAt, w.data?.timezone)}</dd></div><div><dt>Revisions preserved</dt><dd>{item.revisionCount}</dd></div><div><dt>Linked evidence</dt><dd>{item.evidenceCount} {item.evidenceCount === 1 ? 'file' : 'files'}</dd></div></dl><p>Deadlines use {w.data?.timezone ?? 'Asia/Kolkata'}. A company claiming fulfilment doesn’t close the case; you confirm the outcome.</p><Link to="/app/help" className="workspace-text-link">Understand case statuses <ArrowRight size={17}/></Link></section></> : <div className="workspace-empty"><FolderOpen size={34}/><h1>That case isn’t in this workspace.</h1><p>Return to your cases to pick an available record.</p><Link className="button button-primary" to="/app/cases">View cases <ArrowRight size={17}/></Link></div>}</WorkspaceGate>;
-}
-export function CaptureCheckpoint() {
-  // GAP: Phase 3 implements capture/review. Do not simulate a save or accept real files here.
-  return <><PageHeading title="Start with what they said." description="Keep the message and the promise together."/><section className="capture-checkpoint"><div className="capture-checkpoint-art" aria-hidden="true"><FileText size={36}/><span/><Link2 size={22}/></div><h2>Evidence capture is being prepared.</h2><p>Uploading and reviewing evidence aren’t available in this build yet. No files have been uploaded and no promises have been saved.</p><Link className="button button-primary" to="/app/cases">Explore your cases <ArrowRight size={17}/></Link></section></>;
 }
 export function ReservedWorkspacePage({kind}: {kind: 'evidence' | 'settings'}) {
   // GAP: Dedicated evidence viewer arrives in Phase 4; persisted preferences in Phase 6.

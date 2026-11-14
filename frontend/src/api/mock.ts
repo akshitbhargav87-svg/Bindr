@@ -1,4 +1,5 @@
-import { ApiError, type BindrApi, type CaseDetail } from './types';
+import type { CaseDetail } from './types';
+import { createMockApi } from './mock-mutations';
 import { mapCaseRow, type WorkspaceSnapshot } from './mapper';
 // Synthetic examples only. Deterministic clock belongs exclusively to this adapter.
 export const MOCK_TODAY = '2026-11-14';
@@ -27,20 +28,15 @@ for (const [i, detail] of fixtures.entries()) {
   detail.evidence = ids.map((id, index) => ({id, case_id: detail.case.id, filename: i === 0 ? index === 0 ? 'refund-confirmation.txt' : 'refund-follow-up.txt' : ['','replacement-email.pdf','support-chat.txt','delivery-update.pdf','refund-receipt.txt'][i], media_type: i === 1 || i === 3 ? 'application/pdf' : 'text/plain', size_bytes: 1024, sha256: 'a'.repeat(64), created_at: index === 1 ? '2026-11-09T09:00:00Z' : detail.case.created_at, download_path: `/api/v1/cases/${detail.case.id}/evidence/${id}/content`}));
   if (i !== 0) detail.commitments[0].evidence_ids = ids;
 }
+const createdCases: CaseDetail[] = [];
 export async function loadMockWorkspace(): Promise<WorkspaceSnapshot> {
-  const cases = fixtures.map(detail => {
+  const cases = [...fixtures,...createdCases].filter(detail => detail.commitments.length > 0).map(detail => {
     const active = detail.commitments.filter(c => c.status === 'active');
     const day = (stamp: string) => new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date(stamp));
     const dates = active.map(c => c.due_at).filter((v): v is string => v !== null).sort();
     const status = detail.case.status === 'resolved' ? 'Resolved' : !dates.length ? 'Needs a date' : dates.some(d => day(d) < MOCK_TODAY) ? 'Overdue' : dates.some(d => day(d) === MOCK_TODAY) ? 'Due today' : 'Active';
-    return mapCaseRow(detail, status);
+    return {...mapCaseRow(detail, status), demoSeed: fixtures.includes(detail)};
   });
   return structuredClone({cases, asOf: MOCK_TODAY, timezone: 'Asia/Kolkata', demo: true});
 }
-function notBuilt(): never {throw new ApiError(501, {code: 'PHASE_NOT_IMPLEMENTED', message: 'This workflow will be connected in a later build phase.', details: [], request_id: ''});}
-// Foundation supports reads. Mutation simulations arrive with their respective UI phases.
-export const mockApi: BindrApi = {
-  listCases: async () => ({cases: structuredClone(fixtures.map(d => d.case))}),
-  getCase: async id => {const detail = fixtures.find(d => d.case.id === id); if (!detail) throw new ApiError(404, {code: 'NOT_FOUND', message: 'Case not found.', details: [], request_id: ''}); return structuredClone(detail);},
-  createCase: async () => notBuilt(), uploadEvidence: async () => notBuilt(), extract: async () => notBuilt(), review: async () => notBuilt(), resolve: async () => notBuilt(), complaint: async () => notBuilt(),
-};
+export const mockApi = createMockApi(fixtures,createdCases,MOCK_TODAY);

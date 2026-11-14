@@ -1,5 +1,9 @@
 # Bindr frontend
 
+Phase 3 is implemented: `/app/upload` accepts source files or pasted messages; `/app/review` opens editable, source-linked fields with explicit confirmation. Default mock extraction reads text locally; screenshots/PDFs support preview and manual entry, without OCR. New records and their original files remain in this tab until reload. See PHASE-3-HANDOVER.md for review steps, recovery paths and HTTP integration gaps. Phase 4 detail/timeline work has not started.
+
+Current focused checks: `node --test checks/workspace.test.mjs checks/capture.test.mjs`.
+
 Phase 2 is now implemented: `/app` opens the introduction/overview and `/app/cases` opens searchable, filterable cases. Choose **Explore sample cases** on first visit, or use the **Demo workspace** menu to review empty/offline/error states. The app uses the same Nunito/Inter typography and foundation tokens as the revised landing. See PHASE-2-HANDOVER.md for routes, validation and remaining scope. Existing Phase 1 notes below are historical where superseded.
 
 Optional focused logic checks: `node --test checks/workspace.test.mjs`.

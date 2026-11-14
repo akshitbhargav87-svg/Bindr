@@ -21,7 +21,7 @@ function useWorkspaceState() {
     try {
       if (isMock && view === 'error') throw new Error('The workspace could not be loaded. Your records have not been changed.');
       const result = await loadWorkspace();
-      if (current === sequence.current) setData(isMock && view === 'empty' ? {...result, cases: []} : result);
+      if (current === sequence.current) setData(isMock && view === 'empty' ? {...result, cases: result.cases.filter(c => !c.demoSeed)} : result);
     } catch (cause) {
       if (current === sequence.current) setError(cause instanceof ApiError && cause.status === 401 ? 'Your workspace session is unavailable. Ask the team to restore the backend session, then try again.' : cause instanceof ApiError && cause.status === 403 ? 'Your workspace session could not be verified. Restore the backend session, then try again.' : 'The workspace could not be loaded. Your records have not been changed.');
     } finally {if (current === sequence.current) setLoading(false);}
@@ -43,8 +43,9 @@ function useWorkspaceState() {
     setPreference('bindr.introduced', 'yes'); setIntroduced(true);
     if (isMock) chooseView(sample ? 'sample' : 'empty');
   }
+  function markIntroduced() {setPreference('bindr.introduced', 'yes'); setIntroduced(true);}
   function showIntro() {setIntroduced(false); setPreference('bindr.introduced', 'no');}
-  return {data, loading, error, offline, online, refresh, view, chooseView, introduced, finishIntro, showIntro, isMock};
+  return {data, loading, error, offline, online, refresh, view, chooseView, introduced, finishIntro, markIntroduced, showIntro, isMock};
 }
 type WorkspaceValue = ReturnType<typeof useWorkspaceState>;
 const Context = createContext<WorkspaceValue | null>(null);

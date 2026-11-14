@@ -1,7 +1,7 @@
 import type { CaseDetail } from './types';
 import type { Status } from '../components/ui';
 export interface CaseRow {
-  id: string; company: string; title: string; status: Status; version: number;
+  demoSeed?: boolean; id: string; company: string; title: string; status: Status; version: number;
   amountMinor: number | null; currency: string | null; dueAt: string | null;
   revisionCount: number; evidenceCount: number; resolvedAt: string | null;
 }
