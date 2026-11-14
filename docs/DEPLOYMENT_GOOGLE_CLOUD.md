@@ -2,7 +2,7 @@
 
 **Cloud Run** hosts the connected frontend/API. **Cloud SQL PostgreSQL** stores records. **Private Cloud Storage** keeps original evidence. **Secret Manager** holds credentials. The existing Meta API provider stays in place; this does not switch AI to Gemini or Vertex AI.
 
-This prepares a fresh judging deployment, without importing data from Render or SQLite. No Google resources have been provisioned or verified yet. Your project ID was not present in the recovered chat: use the actual ID from the Google Cloud project selector below.
+This prepares a fresh judging deployment, without importing data from Render or SQLite. No Google resources have been provisioned or verified yet. The supplied Console screenshot identifies **My First Project**, ID `project-0021b03b-28bd-43e6-9d4`; the commands below use that project.
 
 ## 1. Select the project and billing
 
@@ -17,7 +17,7 @@ Open **Cloud Shell** from the Console toolbar. Run these blocks in the same **Ba
 ```bash
 git clone https://github.com/akshitbhargav87-svg/Bindr.git
 cd Bindr
-export PROJECT_ID="YOUR_PROJECT_ID"
+export PROJECT_ID="project-0021b03b-28bd-43e6-9d4"
 export REGION="asia-south1"
 gcloud config set project "$PROJECT_ID"
 gcloud projects describe "$PROJECT_ID" --format='table(projectId,name)'

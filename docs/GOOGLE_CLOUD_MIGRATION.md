@@ -35,6 +35,6 @@ Total: **222 tests**, plus the real-adapter lifecycle and production build. Clou
 
 ## Remaining live acceptance
 
-No Google project was authenticated from this workstation; no cloud resources were created, no public URL is claimed and no paid AI request was made. The project screenshot and its ID were absent from the supplied transcript. Follow [the deployment guide](DEPLOYMENT_GOOGLE_CLOUD.md) using the actual project ID and enter provider credentials privately.
+No Google project was authenticated from this workstation; no cloud resources were created, no public URL is claimed and no paid AI request was made. The subsequently supplied Console screenshot identifies `project-0021b03b-28bd-43e6-9d4` (My First Project). The [deployment guide](DEPLOYMENT_GOOGLE_CLOUD.md) uses that ID; enter provider credentials privately.
 
 Before calling the deployment ready, verify Cloud Build, Cloud SQL startup, Google IAM and bucket permissions, HTTPS cookie behavior, real-provider extraction, another workspace's denied downloads, and record/original persistence across a redeploy. Add the verified URL and results here and in the README. The original release's [audit](RELEASE_AUDIT.md) remains historical evidence, not a claim of a deployed service.
