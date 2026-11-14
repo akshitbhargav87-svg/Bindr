@@ -4,6 +4,7 @@ Promise Keeper - AI Extraction Engine Package (Milestone 1).
 Exposes core models, extraction functions, and provider interfaces.
 """
 
+from backend.app.ai import env  # Auto-loads .env if present
 from backend.app.ai.schemas import (
     CommitmentExtractionResult,
     CommitmentCategory,
