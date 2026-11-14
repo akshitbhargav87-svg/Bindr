@@ -44,12 +44,12 @@ async def upload_evidence(
     db: Session = Depends(get_db)
 ):
     """
-    Upload evidence file (PNG, JPEG, PDF, text/plain) to a case.
+    Upload evidence file (PNG, JPEG, PDF, text/plain) to an owned case.
     Requires an authenticated session.
     Validates file format by content inspection, enforces max 10MB limit,
     hashes with SHA-256, increments case version, and records a timeline event.
     """
-    case = db.query(Case).filter(Case.id == case_id).first()
+    case = db.query(Case).filter(Case.id == case_id, Case.owner_id == session.user_id).first()
     if not case:
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Case {case_id} not found.")
 
@@ -141,8 +141,8 @@ def list_case_evidence(
     session: SessionData = Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
-    """List all evidence metadata associated with a case. Requires authenticated session."""
-    case = db.query(Case).filter(Case.id == case_id).first()
+    """List all evidence metadata associated with an owned case. Requires authenticated session."""
+    case = db.query(Case).filter(Case.id == case_id, Case.owner_id == session.user_id).first()
     if not case:
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Case {case_id} not found.")
 
@@ -162,8 +162,13 @@ def get_evidence_metadata(
     session: SessionData = Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
-    """Retrieve metadata for a specific evidence item. Requires authenticated session."""
-    evidence = db.query(Evidence).filter(Evidence.id == evidence_id, Evidence.case_id == case_id).first()
+    """Retrieve metadata for a specific evidence item in an owned case."""
+    evidence = (
+        db.query(Evidence)
+        .join(Case)
+        .filter(Evidence.id == evidence_id, Evidence.case_id == case_id, Case.owner_id == session.user_id)
+        .first()
+    )
     if not evidence:
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Evidence {evidence_id} not found under case {case_id}.")
     return EvidenceSchema.model_validate(evidence)
@@ -178,10 +183,15 @@ def get_evidence_content(
 ):
     """
     Stream evidence raw bytes with secure headers.
-    Protected by session authorization.
+    Protected by session authorization and case ownership.
     Headers: Cache-Control: private, no-store, X-Content-Type-Options: nosniff.
     """
-    evidence = db.query(Evidence).filter(Evidence.id == evidence_id, Evidence.case_id == case_id).first()
+    evidence = (
+        db.query(Evidence)
+        .join(Case)
+        .filter(Evidence.id == evidence_id, Evidence.case_id == case_id, Case.owner_id == session.user_id)
+        .first()
+    )
     if not evidence:
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Evidence {evidence_id} not found under case {case_id}.")
 

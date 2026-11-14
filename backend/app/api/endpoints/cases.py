@@ -1,6 +1,8 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
+from backend.app.core.auth import get_current_session, SessionData
 from backend.app.models.case import Case, utc_now_iso
 from backend.app.models.timeline import TimelineEvent
 from backend.app.schemas.contract import (
@@ -11,10 +13,30 @@ from backend.app.schemas.contract import (
 router = APIRouter(prefix="/cases", tags=["Cases"])
 
 
+def _api_error(status_code: int, code: str, message: str):
+    req_id = str(uuid.uuid4())
+    raise HTTPException(
+        status_code=status_code,
+        detail={
+            "error": {
+                "code": code,
+                "message": message,
+                "details": [],
+                "request_id": req_id
+            }
+        }
+    )
+
+
 @router.post("", response_model=CaseCreateResponse, status_code=status.HTTP_201_CREATED)
-def create_case(payload: CaseCreateRequest, db: Session = Depends(get_db)):
-    """Create a new case per API_CONTRACT."""
+def create_case(
+    payload: CaseCreateRequest,
+    session: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    """Create a new case per API_CONTRACT. Associated with the authenticated session owner."""
     new_case = Case(
+        owner_id=session.user_id,
         title=payload.title.strip(),
         merchant_name=payload.merchant_name.strip(),
         status="open",
@@ -38,21 +60,30 @@ def create_case(payload: CaseCreateRequest, db: Session = Depends(get_db)):
 
 
 @router.get("", response_model=CaseListResponse)
-def list_cases(db: Session = Depends(get_db)):
-    """Retrieve all cases sorted by created_at descending, then id ascending."""
-    cases = db.query(Case).order_by(Case.created_at.desc(), Case.id.asc()).all()
+def list_cases(
+    session: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    """Retrieve cases owned by authenticated user, sorted by created_at descending, then id ascending."""
+    cases = (
+        db.query(Case)
+        .filter(Case.owner_id == session.user_id)
+        .order_by(Case.created_at.desc(), Case.id.asc())
+        .all()
+    )
     return {"cases": [CaseSchema.model_validate(c) for c in cases]}
 
 
 @router.get("/{case_id}", response_model=CaseDetailResponse)
-def get_case(case_id: str, db: Session = Depends(get_db)):
-    """Retrieve full case details per API_CONTRACT."""
-    case = db.query(Case).filter(Case.id == case_id).first()
+def get_case(
+    case_id: str,
+    session: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    """Retrieve full case details per API_CONTRACT. Inaccessible or unknown IDs return 404."""
+    case = db.query(Case).filter(Case.id == case_id, Case.owner_id == session.user_id).first()
     if not case:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Case {case_id} not found."
-        )
+        _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Case {case_id} not found.")
 
     # Sort commitments, evidence, and extractions by created_at ascending, then id ascending
     commitments_sorted = sorted(case.commitments, key=lambda c: (c.created_at, c.id))

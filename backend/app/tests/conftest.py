@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from backend.app.core.database import Base, get_db
 from backend.app.core.config import settings
+from backend.app.core.auth import create_authenticated_session
 from backend.app.services.storage import storage_service
 from backend.app.services.ai_adapter import ai_adapter
 from backend.app.main import app
@@ -63,7 +64,7 @@ def db_session():
 
 @pytest.fixture(scope="function")
 def client(db_session):
-    """Authenticated client with pre-set pk_session cookie."""
+    """Authenticated client with valid HMAC-SHA256 signed session and CSRF header."""
     def override_get_db():
         try:
             yield db_session
@@ -71,8 +72,28 @@ def client(db_session):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
+    token, csrf = create_authenticated_session(user_id="demo-user")
     with TestClient(app) as test_client:
-        test_client.cookies.set("pk_session", "pk_test_session_token_authenticated")
+        test_client.cookies.set("pk_session", token)
+        test_client.headers.update({"X-CSRF-Token": csrf})
+        yield test_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def secondary_client(db_session):
+    """Authenticated client for a different user ('other-user') to test authorization boundary."""
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    token, csrf = create_authenticated_session(user_id="other-user")
+    with TestClient(app) as test_client:
+        test_client.cookies.set("pk_session", token)
+        test_client.headers.update({"X-CSRF-Token": csrf})
         yield test_client
     app.dependency_overrides.clear()
 
