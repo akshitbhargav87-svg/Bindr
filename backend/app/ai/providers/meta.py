@@ -38,7 +38,7 @@ class MetaProvider(AIProvider):
         model_name: Optional[str] = None,
         timeout: int = 30,
     ):
-        self.api_key = api_key or os.getenv("MODEL_API_KEY")
+        self.api_key = api_key if api_key is not None else os.getenv("MODEL_API_KEY")
         self.base_url = (base_url or os.getenv("META_BASE_URL", self.DEFAULT_BASE_URL)).rstrip("/")
         self.model_name = model_name or os.getenv("META_MODEL", self.DEFAULT_MODEL)
         self.timeout = timeout

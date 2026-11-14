@@ -110,6 +110,16 @@ class SourceMetadata(BaseModel):
         return v
 
 
+class EvidenceMetadata(BaseModel):
+    """Traceability metadata linking extracted commitments to source files (Milestone 2)."""
+    evidence_id: Optional[str] = Field(default=None, description="Unique identifier for the source evidence.")
+    filename: Optional[str] = Field(default=None, description="Original filename of the evidence.")
+    file_type: Optional[str] = Field(default=None, description="File type/extension (e.g. 'pdf', 'png', 'jpeg').")
+    total_pages: Optional[int] = Field(default=None, description="Total pages in the source document.")
+    page_numbers: List[int] = Field(default_factory=list, description="Pages containing extracted content.")
+    extraction_warnings: List[str] = Field(default_factory=list, description="Warnings encountered during file processing.")
+
+
 class CommitmentExtractionResult(BaseModel):
     """
     Final structured commitment data output of Milestone 1.
@@ -166,6 +176,10 @@ class CommitmentExtractionResult(BaseModel):
     raw_source_text: Optional[str] = Field(
         default=None,
         description="Original text analyzed (retained for verification and backend audit logging)."
+    )
+    evidence_metadata: Optional[EvidenceMetadata] = Field(
+        default=None,
+        description="Traceability metadata linking the extracted commitment back to the source file/evidence (Milestone 2)."
     )
 
     @field_validator("company_name", "currency", "communication_date", "supporting_quotation", mode="before")

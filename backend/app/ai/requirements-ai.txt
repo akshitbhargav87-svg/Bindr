@@ -1,4 +1,4 @@
-# AI Engine proposed dependencies for Milestone 1 (Meta Model API)
+# AI Engine proposed dependencies for Bindr (Milestone 1 + Milestone 2)
 # Backend owner: Review and incorporate into the root/backend requirements.txt
 
 # Core validation and data modeling
@@ -6,6 +6,12 @@ pydantic>=2.7.0,<3.0.0
 
 # HTTP requests for provider API communication (Meta Model API endpoint)
 requests>=2.31.0,<3.0.0
+
+# Document & PDF text extraction (Milestone 2)
+pymupdf>=1.24.0
+
+# Image & Screenshot handling (Milestone 2)
+Pillow>=10.0.0
 
 # Testing and development
 pytest>=8.0.0,<9.0.0
