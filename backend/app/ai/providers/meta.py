@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import math
 from typing import Optional, Any, Dict
 import requests
 
@@ -135,19 +136,19 @@ class MetaProvider(AIProvider):
         # Handle HTTP status codes
         if response.status_code in (401, 403):
             raise AIAuthenticationError(
-                f"Meta API authentication failed (HTTP {response.status_code}): {response.text}"
+                f"Meta API authentication failed (HTTP {response.status_code})"
             )
         elif response.status_code == 429:
             raise AIRateLimitError(
-                f"Meta API rate limit or quota exceeded (HTTP 429): {response.text}"
+                f"Meta API rate limit or quota exceeded (HTTP 429)"
             )
         elif response.status_code >= 500:
             raise AIProviderError(
-                f"Meta API server error (HTTP {response.status_code}): {response.text}"
+                f"Meta API server error (HTTP {response.status_code})"
             )
         elif response.status_code != 200:
             raise AIProviderError(
-                f"Meta API request failed (HTTP {response.status_code}): {response.text}"
+                f"Meta API request failed (HTTP {response.status_code})"
             )
 
         try:
@@ -226,6 +227,30 @@ class MetaProvider(AIProvider):
                 "Meta response deadline contains unsupported fields: "
                 f"{', '.join(sorted(unexpected_deadline_fields))}."
             )
+
+        for key in ("is_vague_estimate", "user_confirmation_required"):
+            if type(data[key]) is not bool:
+                raise AIResponseParsingError(f"{key} must be a boolean.")
+        for key in ("company_name", "currency", "communication_date", "supporting_quotation"):
+            if data[key] is not None and not isinstance(data[key], str):
+                raise AIResponseParsingError(f"{key} must be text or null.")
+        amount = data["amount"]
+        if amount is not None and (type(amount) not in (int, float) or not math.isfinite(amount) or amount < 0):
+            raise AIResponseParsingError("Amount must be finite and nonnegative.")
+        if not isinstance(data["commitment_description"], str) or not 1 <= len(data["commitment_description"].strip()) <= 2000:
+            raise AIResponseParsingError("Invalid commitment description.")
+        missing = data["missing_or_ambiguous_fields"]
+        if not isinstance(missing, list) or any(not isinstance(x, str) or not 1 <= len(x) <= 500 for x in missing):
+            raise AIResponseParsingError("Invalid missing-field warning list.")
+        for key in ("duration_value", "duration_value_max"):
+            value = deadline[key]
+            if value is not None and (type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 3650):
+                raise AIResponseParsingError("Invalid deadline duration.")
+        for key in ("duration_unit", "absolute_date", "raw_deadline_text"):
+            if deadline[key] is not None and not isinstance(deadline[key], str):
+                raise AIResponseParsingError("Invalid deadline text field.")
+        if deadline["duration_unit"] is not None and deadline["duration_unit"] not in {"business_days", "calendar_days", "hours", "weeks", "months"}:
+            raise AIResponseParsingError("Unsupported duration unit.")
 
         category = data["commitment_category"]
         commitment_type = data["commitment_type"]

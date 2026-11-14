@@ -50,7 +50,7 @@ def test_ai_malformed_variant_1_schema_version_and_root_keys(client, db_session,
 
     # 1a. Unsupported schema version
     monkeypatch.setattr(ai_adapter, "extract_commitments", lambda **kw: {"schema_version": 2, "candidates": []})
-    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res.status_code == 502
     assert res.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -63,7 +63,7 @@ def test_ai_malformed_variant_1_schema_version_and_root_keys(client, db_session,
         ai_adapter, "extract_commitments",
         lambda **kw: {"schema_version": 1, "candidates": [], "unexpected_extra_key": True}
     )
-    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res2.status_code == 502
     assert res2.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -86,7 +86,7 @@ def test_ai_malformed_variant_2_candidate_shape_id_and_uniqueness(client, db_ses
         ai_adapter, "extract_commitments",
         lambda **kw: {"schema_version": 1, "candidates": [bad_id_cand]}
     )
-    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res.status_code == 502
     assert res.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -97,7 +97,7 @@ def test_ai_malformed_variant_2_candidate_shape_id_and_uniqueness(client, db_ses
         ai_adapter, "extract_commitments",
         lambda **kw: {"schema_version": 1, "candidates": [cand_dup1, cand_dup2]}
     )
-    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res2.status_code == 502
     assert res2.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -123,7 +123,7 @@ def test_ai_malformed_variant_3_terms_validation_and_bounds(client, db_session, 
         ai_adapter, "extract_commitments",
         lambda **kw: {"schema_version": 1, "candidates": [bad_kind_cand]}
     )
-    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res.status_code == 502
     assert res.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -140,7 +140,7 @@ def test_ai_malformed_variant_3_terms_validation_and_bounds(client, db_session, 
         ai_adapter, "extract_commitments",
         lambda **kw: {"schema_version": 1, "candidates": [bad_amt_cand]}
     )
-    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res2.status_code == 502
     assert res2.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -163,7 +163,7 @@ def test_ai_malformed_variant_4_money_pairing_rules(client, db_session, monkeypa
         ai_adapter, "extract_commitments",
         lambda **kw: {"schema_version": 1, "candidates": [bad_pairing_1]}
     )
-    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res.status_code == 502
     assert res.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -173,7 +173,7 @@ def test_ai_malformed_variant_4_money_pairing_rules(client, db_session, monkeypa
         ai_adapter, "extract_commitments",
         lambda **kw: {"schema_version": 1, "candidates": [bad_pairing_2]}
     )
-    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res2.status_code == 502
     assert res2.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -196,7 +196,7 @@ def test_ai_malformed_variant_5_sources_citation_and_verbatim_check(client, db_s
         ai_adapter, "extract_commitments",
         lambda **kw: {"schema_version": 1, "candidates": [invented_eid_cand]}
     )
-    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res.status_code == 502
     assert res.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -213,7 +213,7 @@ def test_ai_malformed_variant_5_sources_citation_and_verbatim_check(client, db_s
         ai_adapter, "extract_commitments",
         lambda **kw: {"schema_version": 1, "candidates": [bad_quote_cand]}
     )
-    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res2.status_code == 502
     assert res2.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -236,7 +236,7 @@ def test_ai_malformed_variant_6_metadata_and_revision_bounds(client, db_session,
         ai_adapter, "extract_commitments",
         lambda **kw: {"schema_version": 1, "candidates": [bad_conf_cand]}
     )
-    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res.status_code == 502
     assert res.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -253,7 +253,7 @@ def test_ai_malformed_variant_6_metadata_and_revision_bounds(client, db_session,
         ai_adapter, "extract_commitments",
         lambda **kw: {"schema_version": 1, "candidates": [bad_rev_cand]}
     )
-    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": ver, "evidence_ids": [evidence["id"]]})
     assert res2.status_code == 502
     assert res2.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -392,7 +392,7 @@ def test_sqlite_migration_adds_owner_id_to_legacy_table():
 
         row = conn.execute(text("SELECT id, owner_id FROM cases WHERE id = 'legacy-c1'")).fetchone()
         assert row[0] == "legacy-c1"
-        assert row[1] == "demo-user"
+        assert row[1] == "legacy-unclaimed"
 
 
 # ---------------------------------------------------------------------------
@@ -402,10 +402,10 @@ def test_sqlite_migration_adds_owner_id_to_legacy_table():
 def test_browser_session_bootstrap_flow(anonymous_client):
     """Complete browser bootstrap flow: POST /auth/session -> cookies set -> authenticated mutation."""
     # 1. Bootstrap session
-    boot_res = anonymous_client.post("/api/v1/auth/session", json={"user_id": "test-browser-user"})
+    boot_res = anonymous_client.post("/api/v1/auth/session", json={})
     assert boot_res.status_code == 201
     boot_data = boot_res.json()
-    assert boot_data["user_id"] == "test-browser-user"
+    assert boot_data["user_id"] != "demo-user"
     assert "csrf_token" in boot_data
     assert "session_id" in boot_data
 
@@ -416,7 +416,7 @@ def test_browser_session_bootstrap_flow(anonymous_client):
     # 2. Inspect session via GET /auth/session
     inspect_res = anonymous_client.get("/api/v1/auth/session")
     assert inspect_res.status_code == 200
-    assert inspect_res.json()["user_id"] == "test-browser-user"
+    assert inspect_res.json()["user_id"] == boot_data["user_id"]
 
     # 3. Perform authenticated POST echoing CSRF token from readable pk_csrf cookie
     csrf_token = anonymous_client.cookies.get("pk_csrf")

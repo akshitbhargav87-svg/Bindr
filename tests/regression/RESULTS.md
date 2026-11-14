@@ -1,3 +1,5 @@
+> Historical branch handover. The combined release supersedes session, route, OCR and acceptance-status notes below. See the [current release audit](../../docs/RELEASE_AUDIT.md).
+
 # Final integration acceptance audit — 14 November 2026
 
 **Decision: functional screenshot integration verified; final acceptance/deployment BLOCKED.** The reported 84-test result is reproducible. The latest pushed AI code adds six passing tests, for 90 native test passes. However, the preserved integration suite has six genuine malformed-output failures plus two obsolete-stub failures, and independent security/upgrade tests expose remaining blockers.

@@ -11,8 +11,8 @@ export async function loadHttpWorkspace(): Promise<WorkspaceSnapshot> {
     while (next < cases.length) {
       const item = cases[next++];
       const detail = await httpApi.getCase(item.id);
-      // Unreviewed extraction drafts are not tracked promises.
-      if (detail.commitments.length) rows.push(mapCaseRow(detail));
+      // Unconfirmed records stay reachable after reload; they never enter promise totals.
+      rows.push(mapCaseRow(detail));
     }
   }));
   const order = new Map(cases.map((c, i) => [c.id, i]));

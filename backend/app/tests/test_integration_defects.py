@@ -26,7 +26,7 @@ def _upload_text_evidence(client, case_id, content: str, filename: str = "note.t
 def test_anonymous_evidence_access_rejected(anonymous_client, client):
     """Anonymous access to evidence content must return 401 UNAUTHENTICATED."""
     case = _create_case(client)
-    evidence, _ = _upload_text_evidence(client, case["id"], "Secret customer data")
+    evidence, version = _upload_text_evidence(client, case["id"], "Secret customer data")
 
     # Access via anonymous client (no pk_session cookie or auth token)
     res = anonymous_client.get(f"/api/v1/cases/{case['id']}/evidence/{evidence['id']}/content")
@@ -41,7 +41,7 @@ def test_anonymous_upload_rejected(anonymous_client, client):
     """Anonymous file upload must return 401 UNAUTHENTICATED."""
     case = _create_case(client)
     files = {"file": ("unauth.txt", io.BytesIO(b"Data"), "text/plain")}
-    res = anonymous_client.post(f"/api/v1/cases/{case['id']}/evidence", files=files)
+    res = anonymous_client.post(f"/api/v1/cases/{case['id']}/evidence", files=files, data={"expected_version": 1})
     assert res.status_code == 401
     assert res.json()["error"]["code"] == "UNAUTHENTICATED"
 
@@ -87,7 +87,8 @@ def test_quotation_attributed_to_wrong_file_is_rejected():
     with pytest.raises(AIInvalidOutputError) as exc_info:
         adapter._validate_and_sanitize_candidates(malformed_candidates, [evidence_a, evidence_b])
 
-    assert "quote is not a verbatim substring of cited evidence 'ev-A'" in str(exc_info.value)
+    assert "not a verbatim substring" in str(exc_info.value)
+    assert "ev-A" not in str(exc_info.value)  # Public provider errors omit evidence identifiers.
 
 
 def test_quotation_validated_per_individual_evidence_not_concatenated():
@@ -123,13 +124,14 @@ def test_review_rejects_invented_candidate_id(client):
     evidence, version = _upload_text_evidence(client, case["id"], "We will refund INR 1500 within 5 business days for order 123.", expected_version=1)
 
     # Create extraction draft
-    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": version, "evidence_ids": [evidence["id"]]})
     assert ext_res.status_code == 201
     draft = ext_res.json()["extraction"]
     assert len(draft["candidates"]) > 0
 
     # Attempt to review with an invented candidate ID 'c999'
     review_payload = {
+        "expected_version": ext_res.json()["case_version"],
         "decision": "approve",
         "items": [
             {
@@ -158,13 +160,14 @@ def test_review_rejects_invented_candidate_id(client):
 def test_review_rejects_negative_amounts(client):
     """Negative amount_minor must be rejected with 422 VALIDATION_ERROR."""
     case = _create_case(client)
-    evidence, _ = _upload_text_evidence(client, case["id"], "We will refund INR 1000 within 5 business days.")
-    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    evidence, version = _upload_text_evidence(client, case["id"], "We will refund INR 1000 within 5 business days.")
+    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": version, "evidence_ids": [evidence["id"]]})
     draft = ext_res.json()["extraction"]
     assert len(draft["candidates"]) > 0
     candidate_id = draft["candidates"][0]["candidate_id"]
 
     review_payload = {
+        "expected_version": ext_res.json()["case_version"],
         "decision": "approve",
         "items": [
             {
@@ -188,16 +191,17 @@ def test_review_rejects_negative_amounts(client):
     assert res.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
-def test_review_rejects_zero_or_negative_refund(client):
-    """Reviewed refund requires positive amount_minor."""
+def test_review_rejects_missing_refund_amount(client):
+    """Reviewed refund requires a populated amount and currency pair."""
     case = _create_case(client)
-    evidence, _ = _upload_text_evidence(client, case["id"], "We will refund INR 1000 within 5 business days.")
-    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    evidence, version = _upload_text_evidence(client, case["id"], "We will refund INR 1000 within 5 business days.")
+    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": version, "evidence_ids": [evidence["id"]]})
     draft = ext_res.json()["extraction"]
     assert len(draft["candidates"]) > 0
     candidate_id = draft["candidates"][0]["candidate_id"]
 
     review_payload = {
+        "expected_version": ext_res.json()["case_version"],
         "decision": "approve",
         "items": [
             {
@@ -207,7 +211,7 @@ def test_review_rejects_zero_or_negative_refund(client):
                 "terms": {
                     "kind": "refund",
                     "description": "Zero refund",
-                    "amount_minor": 0,  # Refund cannot be 0
+                    "amount_minor": None,  # Refund must have a populated amount
                     "currency": "INR",
                     "due_at": None
                 },
@@ -224,8 +228,8 @@ def test_review_rejects_zero_or_negative_refund(client):
 def test_review_rejects_duplicate_candidate_in_items(client):
     """Review payload containing duplicate candidate IDs must be rejected."""
     case = _create_case(client)
-    evidence, _ = _upload_text_evidence(client, case["id"], "We will refund INR 1000 within 5 business days.")
-    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    evidence, version = _upload_text_evidence(client, case["id"], "We will refund INR 1000 within 5 business days.")
+    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": version, "evidence_ids": [evidence["id"]]})
     draft = ext_res.json()["extraction"]
     assert len(draft["candidates"]) > 0
     candidate_id = draft["candidates"][0]["candidate_id"]
@@ -245,6 +249,7 @@ def test_review_rejects_duplicate_candidate_in_items(client):
     }
 
     review_payload = {
+        "expected_version": ext_res.json()["case_version"],
         "decision": "approve",
         "items": [item, item]  # Duplicate item with same candidate_id
     }
@@ -257,12 +262,12 @@ def test_review_rejects_duplicate_candidate_in_items(client):
 def test_no_silent_mock_fallback_when_meta_provider_unconfigured(client):
     """When AI_PROVIDER=meta, missing MODEL_API_KEY must return 503 AI_UNAVAILABLE, never silent mock."""
     case = _create_case(client)
-    evidence, _ = _upload_text_evidence(client, case["id"], "We will refund INR 500.")
+    evidence, version = _upload_text_evidence(client, case["id"], "We will refund INR 500.")
 
     settings.AI_PROVIDER = "meta"
     settings.MODEL_API_KEY = None
 
-    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": version, "evidence_ids": [evidence["id"]]})
     assert res.status_code == 503
     assert res.json()["error"]["code"] == "AI_UNAVAILABLE"
 

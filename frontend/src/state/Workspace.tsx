@@ -23,7 +23,7 @@ function useWorkspaceState() {
       const result = await loadWorkspace();
       if (current === sequence.current) setData(isMock && view === 'empty' ? {...result, cases: result.cases.filter(c => !c.demoSeed)} : result);
     } catch (cause) {
-      if (current === sequence.current) setError(cause instanceof ApiError && cause.status === 401 ? 'Your workspace session is unavailable. Ask the team to restore the backend session, then try again.' : cause instanceof ApiError && cause.status === 403 ? 'Your workspace session could not be verified. Restore the backend session, then try again.' : 'The workspace could not be loaded. Your records have not been changed.');
+      if (current === sequence.current) setError(cause instanceof ApiError && cause.status === 401 ? 'Your workspace session could not be opened. Reload this page, then try again.' : cause instanceof ApiError && cause.status === 403 ? 'Your workspace session could not be verified. Reload this page, then try again.' : 'The workspace could not be loaded. Your records have not been changed.');
     } finally {if (current === sequence.current) setLoading(false);}
   }, [offline, view]);
   useEffect(() => {void refresh(); return () => {sequence.current++;};}, [refresh]);

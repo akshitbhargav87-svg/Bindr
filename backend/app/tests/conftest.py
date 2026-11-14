@@ -26,6 +26,8 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 @pytest.fixture(scope="function", autouse=True)
 def test_environment(temp_storage):
     """Ensure tests run with offline mock provider by default and clean engine state."""
+    from backend.app.services.rate_limit import _buckets
+    _buckets.clear()
     old_provider = settings.AI_PROVIDER
     old_key = settings.MODEL_API_KEY
     settings.AI_PROVIDER = "mock"

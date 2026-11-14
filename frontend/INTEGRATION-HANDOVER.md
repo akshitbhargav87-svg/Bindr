@@ -1,3 +1,5 @@
+> Historical branch handover. The combined release supersedes session, route, OCR and acceptance-status notes below. See the [current release audit](../docs/RELEASE_AUDIT.md).
+
 # Bindr — frontend integration handover
 
 14 Nov 2026. Frontend Phases 1–6 are implemented. Phase 7's frontend wiring, contract checks, connected build and handover are complete. Testing against the real FastAPI/backend/AI is still pending: `http://127.0.0.1:8000/api/v1/cases` refused the connection during this pass. No backend source is present in this frontend clone; no backend was started, modified or substituted as a production service.

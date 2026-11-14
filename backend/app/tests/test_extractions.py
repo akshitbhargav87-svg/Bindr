@@ -14,7 +14,7 @@ def _setup_case_with_evidence(client, text=TEXT_PROMISE):
     case = case_res.json()["case"]
 
     files = {"file": ("refund_promise.txt", io.BytesIO(text), "text/plain")}
-    ev_res = client.post(f"/api/v1/cases/{case['id']}/evidence", files=files)
+    ev_res = client.post(f"/api/v1/cases/{case['id']}/evidence", files=files, data={"expected_version": 1})
     assert ev_res.status_code == 201
     evidence = ev_res.json()["evidence"]
     case_version = ev_res.json()["case_version"]
@@ -78,7 +78,7 @@ def test_extraction_ai_timeout_handling(client, monkeypatch):
 
     monkeypatch.setattr(ai_adapter, "extract_commitments", mock_timeout)
 
-    payload = {"evidence_ids": [evidence["id"]]}
+    payload = {"expected_version": version, "evidence_ids": [evidence["id"]]}
     res = client.post(f"/api/v1/cases/{case['id']}/extractions", json=payload)
     assert res.status_code == 504
     data = res.json()
@@ -94,7 +94,7 @@ def test_extraction_ai_unavailable_handling(client, monkeypatch):
 
     monkeypatch.setattr(ai_adapter, "extract_commitments", mock_unavailable)
 
-    payload = {"evidence_ids": [evidence["id"]]}
+    payload = {"expected_version": version, "evidence_ids": [evidence["id"]]}
     res = client.post(f"/api/v1/cases/{case['id']}/extractions", json=payload)
     assert res.status_code == 503
     data = res.json()
@@ -110,7 +110,7 @@ def test_extraction_ai_invalid_output_handling(client, monkeypatch):
 
     monkeypatch.setattr(ai_adapter, "extract_commitments", mock_invalid)
 
-    payload = {"evidence_ids": [evidence["id"]]}
+    payload = {"expected_version": version, "evidence_ids": [evidence["id"]]}
     res = client.post(f"/api/v1/cases/{case['id']}/extractions", json=payload)
     assert res.status_code == 502
     data = res.json()
@@ -179,11 +179,12 @@ def test_user_confirmation_and_commitment_persistence(client):
 def test_user_rejection_closes_draft_without_saving(client):
     case, evidence, version = _setup_case_with_evidence(client)
 
-    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": version, "evidence_ids": [evidence["id"]]})
     draft_id = ext_res.json()["extraction"]["id"]
 
     # Reject draft
     review_payload = {
+        "expected_version": ext_res.json()["case_version"],
         "decision": "reject",
         "items": []
     }
@@ -200,14 +201,14 @@ def test_user_rejection_closes_draft_without_saving(client):
 
 def test_repeated_review_fails_with_draft_closed(client):
     case, evidence, version = _setup_case_with_evidence(client)
-    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": version, "evidence_ids": [evidence["id"]]})
     draft_id = ext_res.json()["extraction"]["id"]
 
     # First review: reject
-    client.post(f"/api/v1/cases/{case['id']}/extractions/{draft_id}/review", json={"decision": "reject", "items": []})
+    client.post(f"/api/v1/cases/{case['id']}/extractions/{draft_id}/review", json={"expected_version": client.get(f"/api/v1/cases/{case['id']}").json()["case"]["version"], "decision": "reject", "items": []})
 
     # Second review attempt on same draft: must fail with 409 DRAFT_CLOSED
-    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions/{draft_id}/review", json={"decision": "reject", "items": []})
+    res2 = client.post(f"/api/v1/cases/{case['id']}/extractions/{draft_id}/review", json={"expected_version": client.get(f"/api/v1/cases/{case['id']}").json()["case"]["version"], "decision": "reject", "items": []})
     assert res2.status_code == 409
     data2 = res2.json()
     err2 = data2.get("error") or data2.get("detail", {}).get("error")
@@ -228,11 +229,12 @@ def test_user_confirms_revision_superseding_previous(client):
     }).json()
 
     # 2. Extract from a new evidence
-    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [evidence["id"]]})
+    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": version, "evidence_ids": [evidence["id"]]})
     draft_id = ext_res.json()["extraction"]["id"]
 
     # 3. Confirm as revision superseding init_comm["id"]
     revision_payload = {
+        "expected_version": ext_res.json()["case_version"],
         "decision": "approve",
         "items": [
             {

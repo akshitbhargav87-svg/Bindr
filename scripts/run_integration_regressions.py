@@ -14,6 +14,7 @@ def main():
     parser.add_argument('--source', type=Path, required=True, help='Source root containing backend/; unchanged by this runner')
     parser.add_argument('--auth-hook', type=Path, help='Test-only Python file exporting authenticate(client, session)')
     parser.add_argument('--diagnostic-anonymous', action='store_true', help='Exercise local routes without auth; does not verify authenticated workflows')
+    parser.add_argument('--ocr-model-dir', type=Path, help='Directory containing already-downloaded public OCR model assets; network stays blocked')
     parser.add_argument('--junit', type=Path, help='Optional report outside production source')
     args = parser.parse_args()
     source = args.source.resolve()
@@ -22,11 +23,16 @@ def main():
     if args.auth_hook and args.diagnostic_anonymous:
         parser.error('Choose authentication hook OR anonymous diagnostic mode')
     tests = Path(__file__).resolve().parents[1] / 'tests' / 'regression'
+    ocr_path = args.ocr_model_dir or (Path(os.environ['OCR_MODEL_DIR']) if os.getenv('OCR_MODEL_DIR') else None)
+    if ocr_path and not ocr_path.is_dir():
+        parser.error('OCR model directory does not exist')
     env = os.environ.copy()
     # No credentials or inherited live DB/storage may reach the test process.
     for key in list(env):
         if any(word in key.upper() for word in ('API_KEY', 'TOKEN', 'SECRET', 'PASSWORD', 'DATABASE_URL', 'EVIDENCE_', 'AI_', 'META_', 'MODEL_')):
             env.pop(key)
+    if ocr_path:
+        env['OCR_MODEL_DIR'] = str(ocr_path.resolve())
     env.update(AI_PROVIDER='mock', AUTH_SECRET=secrets.token_urlsafe(48), PYTHONDONTWRITEBYTECODE='1', PYTEST_DISABLE_PLUGIN_AUTOLOAD='1')
     # Prevent accidental import from cwd/PYTHONPATH and avoid loading target .env files.
     env.pop('PYTHONPATH', None)

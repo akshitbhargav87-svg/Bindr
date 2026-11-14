@@ -191,7 +191,7 @@ def get_current_session(request: Request) -> SessionData:
         if origin:
             normalized_origin = origin.rstrip("/")
             allowed_origins = [o.rstrip("/") for o in settings.CORS_ORIGINS]
-            if normalized_origin not in allowed_origins:
+            if normalized_origin not in allowed_origins and normalized_origin != str(request.base_url).rstrip("/"):
                 req_id = str(uuid.uuid4())
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -205,6 +205,8 @@ def get_current_session(request: Request) -> SessionData:
                     }
                 )
 
+        if not origin and settings.ENVIRONMENT.lower() in {"production", "prod", "staging", "deployed"}:
+            raise HTTPException(403, detail="Origin is required for browser writes.")
         csrf_header = request.headers.get("X-CSRF-Token")
         if not csrf_header or not hmac.compare_digest(csrf_header.strip(), expected_csrf):
             req_id = str(uuid.uuid4())

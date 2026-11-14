@@ -5,14 +5,15 @@ from pydantic import BaseModel
 
 def _get_cors_origins() -> List[str]:
     raw = os.getenv("CORS_ORIGINS")
-    if raw:
-        return [o.strip() for o in raw.split(",") if o.strip() and o.strip() != "*"]
-    return [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
+    origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip() and o.strip() != "*"] if raw else [
+        "http://localhost:3000", "http://localhost:5173",
+        "http://127.0.0.1:3000", "http://127.0.0.1:5173",
     ]
+    for key in ("FRONTEND_ORIGIN", "RENDER_EXTERNAL_URL"):
+        value = os.getenv(key, "").strip().rstrip("/")
+        if value and value != "*" and value not in origins:
+            origins.append(value)
+    return origins
 
 
 class Settings(BaseModel):

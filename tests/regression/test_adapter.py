@@ -30,7 +30,16 @@ def test_quote_is_linked_to_its_actual_evidence(adapter_module, monkeypatch, mat
     result = SimpleNamespace(commitment_category=SimpleNamespace(value='refund'), commitment_description='Refund',
                              supporting_quotation=quote, amount=4999.0, currency='INR', missing_or_ambiguous_fields=[])
     adapter = adapter_module.AIModuleAdapter()
-    monkeypatch.setattr(adapter, '_get_engine', lambda: SimpleNamespace(extract=lambda **kw: result))
+    # Current pipeline processes each source independently; stub only inference.
+    # An unrelated file returns no commitment rather than borrowing another file's quote.
+    import backend.app.ai
+    def infer(**kw):
+        text = kw['file_source'].decode('utf-8')
+        if quote not in text:
+            return SimpleNamespace(commitment_category=SimpleNamespace(value='no_commitment'), raw_source_text=text)
+        return SimpleNamespace(**vars(result), raw_source_text=text)
+    monkeypatch.setattr(backend.app.ai, 'extract_commitment_from_evidence', infer)
+    monkeypatch.setattr(adapter, '_get_engine', lambda: SimpleNamespace(provider=None))
     out = adapter.extract_commitments(str(uuid4()), evidence)
     sources = out['candidates'][0]['sources']
     assert sources

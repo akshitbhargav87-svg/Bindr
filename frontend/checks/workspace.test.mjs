@@ -51,3 +51,15 @@ test('returned mock snapshots cannot mutate the adapter fixtures',async () => {
   const snapshot = await loadMockWorkspace(); snapshot.cases.length = 0;
   assert.equal((await loadMockWorkspace()).cases.length,5);
 });
+
+
+test('unconfirmed records remain distinct from tracked promise totals',async () => {
+  const snapshot=await loadMockWorkspace();const detail=await mockApi.getCase(snapshot.cases[0].id);detail.commitments=[];detail.case.status='open';const row=mapCaseRow(detail);assert.equal(row.status,'Needs review');assert.deepEqual(summarizeCases([row]),{open:0,outstandingMinor:0,overdue:0});assert.equal(filterCases([row],'','Needs review').length,1);
+});
+
+
+test('case amounts retain currency and unrelated currencies are never summed',async()=>{
+  const {cases}=await loadMockWorkspace();const detail=await mockApi.getCase(cases[0].id);detail.case.status='open';detail.commitments=detail.commitments.filter(c=>c.status==='active');detail.commitments[0].currency='USD';detail.commitments[0].amount_minor=12550;
+  const row=mapCaseRow(detail);assert.equal(row.currency,'USD');assert.equal(row.amountMinor,12550);assert.equal(summarizeCases([row]).outstandingMinor,0);
+  detail.commitments.push({...detail.commitments[0],id:'other-currency',currency:'INR',amount_minor:10000});const mixed=mapCaseRow(detail);assert.equal(mixed.amountMinor,null);assert.equal(mixed.currency,null);assert.equal(mixed.multipleCurrencies,true);assert.equal(summarizeCases([mixed]).outstandingMinor,10000);
+});

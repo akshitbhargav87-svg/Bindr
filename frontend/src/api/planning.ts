@@ -4,7 +4,7 @@ import type { Preferences } from './preferences';
 import { caseTimeline,listEvidence } from './case-service';
 export interface AgendaGroup {key:string;label:string;cases:CaseRow[]}
 export function buildAgenda(snapshot:WorkspaceSnapshot):AgendaGroup[] {
-  const open=snapshot.cases.filter(c=>c.status!=='Resolved');
+  const open=snapshot.cases.filter(c=>c.status!=='Resolved' && c.status!=='Needs review');
   const sort=(rows:CaseRow[])=>[...rows].sort((a,b)=>(a.dueAt ? Date.parse(a.dueAt) : Infinity)-(b.dueAt ? Date.parse(b.dueAt) : Infinity) || a.company.localeCompare(b.company));
   // Group by authoritative display status. Never compare a deadline with browser time.
   return [

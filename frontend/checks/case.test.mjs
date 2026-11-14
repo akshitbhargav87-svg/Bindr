@@ -163,7 +163,7 @@ test('a company fulfilment claim keeps receipt unconfirmed and does not change t
 test('HTTP original downloads use the contracted authenticated route and ignore supplied external paths',async()=>{
   const http=await bundle(false);const m=await import(`data:text/javascript;base64,${Buffer.from(http).toString('base64')}#http-download`);
   const oldFetch=globalThis.fetch;let request;
-  globalThis.fetch=async(url,options)=>{request={url,options};return new Response('Original bytes',{headers:{'Content-Type':'text/plain'}});};
+  globalThis.fetch=async(url,options)=>{if(url.endsWith('/auth/session'))return Response.json({session_id:'test',user_id:'anonymous-test',csrf_token:'token'});request={url,options};return new Response('Original bytes',{headers:{'Content-Type':'text/plain'}});};
   try {
     const blob=await m.loadEvidenceFile({id:'source/one',case_id:'case/one',download_path:'https://untrusted.example/private',filename:'original.txt',media_type:'text/plain',size_bytes:14,sha256:'a'.repeat(64),created_at:'2026-11-14T09:00:00Z'});
     assert.equal(request.url,'http://localhost:8000/api/v1/cases/case%2Fone/evidence/source%2Fone/content');

@@ -30,11 +30,11 @@ def sanitize_filename(filename: Optional[str]) -> str:
         return "unnamed_evidence"
     
     # Strip directory paths
-    base = os.path.basename(filename)
+    base = os.path.basename(filename.replace("\\", "/"))
     # Remove null bytes and control chars
     base = re.sub(r'[\x00-\x1f\x7f]', '', base)
     # Remove Windows/Unix path separators that might remain
-    base = base.replace("/", "").replace("\\", "").strip()
+    base = base.replace("/", "").replace("\\", "").replace('"', "").strip()
     
     # Truncate if excessively long
     if len(base) > 200:
@@ -110,7 +110,8 @@ class LocalEvidenceStorage:
         file_path = os.path.join(self.base_dir, storage_key)
 
         try:
-            with open(file_path, "wb") as f:
+            descriptor = os.open(file_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "wb") as f:
                 f.write(data)
         except Exception as e:
             raise StorageError(f"Failed to write evidence to disk: {e}") from e
@@ -121,7 +122,7 @@ class LocalEvidenceStorage:
         """Get absolute path for a private storage key, ensuring no directory escape."""
         safe_key = os.path.basename(storage_key)
         full_path = os.path.abspath(os.path.join(self.base_dir, safe_key))
-        if not full_path.startswith(os.path.abspath(self.base_dir)):
+        if os.path.commonpath([full_path, os.path.abspath(self.base_dir)]) != os.path.abspath(self.base_dir):
             raise StorageError("Path traversal attempt detected.")
         if not os.path.exists(full_path):
             raise StorageError(f"Evidence file {storage_key} not found on disk.")

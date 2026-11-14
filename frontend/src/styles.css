@@ -59,7 +59,7 @@ svg {flex-shrink: 0;}
 .status-due-today {color: var(--color-today); background: var(--color-today-bg);}
 .status-active {color: var(--color-active); background: var(--color-active-bg);}
 .status-resolved {color: var(--color-resolved); background: var(--color-resolved-bg);}
-.status-needs-a-date {color: var(--color-undated); background: var(--color-undated-bg);}
+.status-needs-review, .status-needs-a-date {color: var(--color-undated); background: var(--color-undated-bg);}
 .alert {display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--color-line); background: var(--color-canvas); border-radius: 6px; font-size: 14px;}
 .brand {display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 32px; line-height: 36px; letter-spacing: -1.5px; font-weight: 800;}
 .brand img {object-fit: contain;}

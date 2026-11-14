@@ -70,7 +70,7 @@ class MockAIProvider(AIProvider):
         lower = text.lower()
 
         # Scenario 1: Refund with a deadline
-        if "refund" in lower and any(word in lower for word in ["business days", "days", "credited", "approved"]):
+        if "refund" in lower and (any(word in lower for word in ["business days", "days", "credited", "approved"]) or re.search(r"will\s+(?:issue\s+(?:a\s+)?)?refund|refund.{0,50}(?:issued|initiated|will)", lower)):
             # Extract company name if present
             company = self._detect_company(text, metadata)
             amount, currency = self._extract_amount_currency(text)
@@ -181,11 +181,11 @@ class MockAIProvider(AIProvider):
         return None
 
     def _extract_amount_currency(self, text: str) -> tuple[Optional[float], Optional[str]]:
-        match = re.search(r"(\$|€|£|USD|EUR|GBP)\s*([0-9]+(?:\.[0-9]{2})?)", text)
+        match = re.search(r"(₹|Rs\.?|INR|\$|€|£|USD|EUR|GBP)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)", text)
         if match:
             curr, amt = match.groups()
             curr_map = {"$": "USD", "€": "EUR", "£": "GBP"}
-            return float(amt), curr_map.get(curr, curr)
+            return float(amt.replace(",", "")), {"₹": "INR", "Rs": "INR", "Rs.": "INR"}.get(curr, curr_map.get(curr, curr))
 
         match_after = re.search(r"([0-9]+(?:\.[0-9]{2})?)\s*(USD|EUR|GBP|dollars)", text, re.IGNORECASE)
         if match_after:
@@ -199,7 +199,7 @@ class MockAIProvider(AIProvider):
         match_range = re.search(r"within\s+(\d+)\s*[-to]+\s*(\d+)\s*(business\s+days|calendar\s+days|days|hours|weeks)", text, re.IGNORECASE)
         if match_range:
             v_min, v_max, unit_raw = match_range.groups()
-            unit = "business_days" if "business" in unit_raw.lower() else ("calendar_days" if "calendar" in unit_raw.lower() else "calendar_days")
+            unit = "business_days" if "business" in unit_raw.lower() else "hours" if "hour" in unit_raw.lower() else "weeks" if "week" in unit_raw.lower() else "calendar_days"
             return DeadlineInfo(
                 deadline_type=DeadlineType.DURATION,
                 duration_value=float(v_min),
@@ -211,7 +211,7 @@ class MockAIProvider(AIProvider):
         match_single = re.search(r"within\s+(\d+)\s*(business\s+days|calendar\s+days|days|hours|weeks)", text, re.IGNORECASE)
         if match_single:
             val, unit_raw = match_single.groups()
-            unit = "business_days" if "business" in unit_raw.lower() else ("calendar_days" if "calendar" in unit_raw.lower() else "calendar_days")
+            unit = "business_days" if "business" in unit_raw.lower() else "hours" if "hour" in unit_raw.lower() else "weeks" if "week" in unit_raw.lower() else "calendar_days"
             return DeadlineInfo(
                 deadline_type=DeadlineType.DURATION,
                 duration_value=float(val),

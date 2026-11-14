@@ -3,6 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
+from backend.app.core.config import settings
 from backend.app.core.auth import get_current_session, SessionData
 from backend.app.models.case import Case, utc_now_iso
 from backend.app.models.commitment import Commitment
@@ -55,7 +56,9 @@ def create_commitment_for_case(
     session: SessionData = Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
-    """Create a commitment associated with an owned case."""
+    """Legacy development route; deployed writes go through extraction review."""
+    if settings.ENVIRONMENT.lower() in {"production", "prod", "staging", "deployed"}:
+        _api_error(405, "METHOD_NOT_ALLOWED", "Confirm commitments through extraction review.")
     case = db.query(Case).filter(Case.id == case_id, Case.owner_id == session.user_id).first()
     if not case:
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Case {case_id} not found.")
@@ -116,6 +119,8 @@ def revise_commitment(
     Revise an existing commitment in an owned case.
     Preserves original commitment: original is marked as 'superseded' and a new commitment is created.
     """
+    if settings.ENVIRONMENT.lower() in {"production", "prod", "staging", "deployed"}:
+        _api_error(405, "METHOD_NOT_ALLOWED", "Confirm revisions through extraction review.")
     original = db.query(Commitment).join(Case).filter(
         Commitment.id == commitment_id,
         Case.owner_id == session.user_id

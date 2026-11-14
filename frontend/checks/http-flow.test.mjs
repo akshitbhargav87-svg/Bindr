@@ -1,5 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {createServer} from 'node:http';import {build} from 'esbuild';
 async function runtime(origin){const code=(await build({stdin:{contents:"export {httpApi,downloadHttpEvidence} from './src/api/http'; export {createMockApi} from './src/api/mock-mutations'; export {prepareCapture} from './src/api/capture';",resolveDir:process.cwd()},bundle:true,format:'esm',platform:'node',write:false,define:{'import.meta.env':JSON.stringify({VITE_USE_MOCK:'false',VITE_API_URL:origin})}})).outputFiles[0].text;return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}#http-${crypto.randomUUID()}`);}
+const session={session_id:'contract-test',user_id:'anonymous-test',csrf_token:'contract-csrf'};
 const envelope=(code,message)=>({error:{code,message,details:[],request_id:'contract-test'}});
 
 test('real HTTP transport completes create/upload/extract/review/revision/draft/download/resolve against a local contract server',async()=>{
@@ -9,6 +10,7 @@ test('real HTTP transport completes create/upload/extract/review/revision/draft/
     try{
       assert.match(req.headers.cookie ?? '',/pk_session=contract-test/);
       if(req.method==='POST')assert.equal(req.headers['x-csrf-token'],'contract-csrf');
+      if(req.url==='/api/v1/auth/session')return send(200,session);
       const path=new URL(req.url,origin).pathname;const parts=path.split('/').filter(Boolean);assert.equal(parts[0],'api');assert.equal(parts[1],'v1');assert.equal(parts[2],'cases');
       let payload,form;
       if(req.method==='POST'){const chunks=[];for await(const chunk of req)chunks.push(chunk);const body=Buffer.concat(chunks);if(req.headers['content-type']?.startsWith('multipart/form-data')){form=await new Request(origin+path,{method:'POST',headers:req.headers,body}).formData();assert.deepEqual([...form.keys()].sort(),['expected_version','file']);}else payload=JSON.parse(body.toString('utf8'));}
@@ -51,16 +53,23 @@ test('real HTTP transport completes create/upload/extract/review/revision/draft/
 });
 
 test('an invalid successful response is uncertain and cannot trigger another create request',async()=>{
-  const m=await runtime('http://localhost:8000/api/v1/');const oldFetch=globalThis.fetch,oldDocument=globalThis.document;let calls=0,job;globalThis.document={cookie:''};globalThis.fetch=async()=>{calls++;return Response.json({unexpected:'response'});};
+  const m=await runtime('http://localhost:8000/api/v1/');const oldFetch=globalThis.fetch,oldDocument=globalThis.document;let calls=0,job;globalThis.document={cookie:''};globalThis.fetch=async url=>{if(url.endsWith('/auth/session'))return Response.json(session);calls++;return Response.json({unexpected:'response'});};
   const input={company:'Test Shop',title:'Refund',sources:[{key:'one',file:new File(['We will refund INR 100 by 2026-11-20.'],'message.txt',{type:'text/plain'}),communicationDate:'2026-11-14',error:null}]};
   try{await assert.rejects(()=>m.prepareCapture(input,null,value=>{job=value;}),/could not be verified/);assert.equal(job.state,'needs-reconciliation');await assert.rejects(()=>m.prepareCapture(input,job,()=>{}),/latest case state/);assert.equal(calls,1);}finally{globalThis.fetch=oldFetch;if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;}
 });
 test('HTML auth errors stay typed and malformed CSRF cookies block mutations before transport',async()=>{
   const m=await runtime('http://localhost:8000');const oldFetch=globalThis.fetch,oldDocument=globalThis.document;let calls=0;globalThis.document={cookie:''};globalThis.fetch=async()=>{calls++;return new Response('<html>Internal session details</html>',{status:401});};
-  try{await assert.rejects(()=>m.httpApi.listCases(),e=>e.status===401 && !e.message.includes('Internal'));globalThis.document.cookie='other=value;pk_csrf=%ZZ';await assert.rejects(()=>m.httpApi.createCase({title:'Refund',merchant_name:'Test'}),e=>e.status===403);assert.equal(calls,1);}finally{globalThis.fetch=oldFetch;if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;}
+  try{await assert.rejects(()=>m.httpApi.listCases(),e=>e.status===401 && !e.message.includes('Internal'));globalThis.document.cookie='other=value;pk_csrf=%ZZ';await assert.rejects(()=>m.httpApi.createCase({title:'Refund',merchant_name:'Test'}),e=>e.status===403);assert.equal(calls,2);}finally{globalThis.fetch=oldFetch;if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;}
 });
 test('cross-case children in a successful detail response are rejected',async()=>{
   const m=await runtime('http://localhost:8000');const domain=m.createMockApi([],[],'2026-11-14');const made=await domain.createCase({title:'Refund',merchant_name:'Test Shop'});await domain.uploadEvidence(made.case.id,new File(['Source'],'message.txt',{type:'text/plain'}),1);const detail=await domain.getCase(made.case.id);detail.evidence[0].case_id=crypto.randomUUID();
-  const oldFetch=globalThis.fetch,oldDocument=globalThis.document;globalThis.document={cookie:''};globalThis.fetch=async()=>Response.json(detail);
+  const oldFetch=globalThis.fetch,oldDocument=globalThis.document;globalThis.document={cookie:''};globalThis.fetch=async url=>Response.json(url.endsWith('/auth/session') ? session : detail);
   try{await assert.rejects(()=>m.httpApi.getCase(made.case.id),/could not be verified/);}finally{globalThis.fetch=oldFetch;if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;}
+});
+
+
+test('a new browser session is created once, without a caller-selected identity, before concurrent domain reads',async()=>{
+  const m=await runtime('http://localhost:8000');const oldFetch=globalThis.fetch,oldDocument=globalThis.document;const calls=[];let established=false;globalThis.document={cookie:''};
+  globalThis.fetch=async(url,options)=>{calls.push({url,options});if(url.endsWith('/auth/session')){if(options.method==='POST'){assert.deepEqual(JSON.parse(options.body),{});established=true;globalThis.document.cookie='pk_csrf=contract-csrf';return Response.json(session,{status:201});}return new Response('',{status:401});}assert.equal(established,true);return Response.json({cases:[]});};
+  try{await Promise.all([m.httpApi.listCases(),m.httpApi.listCases()]);assert.equal(calls.filter(call=>call.url.endsWith('/auth/session')).length,2);assert.equal(calls.filter(call=>call.options.method==='POST').length,1);await m.httpApi.listCases();assert.equal(calls.filter(call=>call.url.endsWith('/auth/session')).length,2);}finally{globalThis.fetch=oldFetch;if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;}
 });

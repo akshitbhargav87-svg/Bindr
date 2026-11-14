@@ -13,7 +13,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
 WORKDIR /app
 COPY backend/requirements.txt backend/requirements.txt
 COPY backend/app/ai/requirements-ai.txt backend/app/ai/requirements-ai.txt
-RUN pip install --no-cache-dir -r backend/requirements.txt -r backend/app/ai/requirements-ai.txt 'psycopg[binary]>=3.2,<4' 'onnxruntime>=1.20,<2'
+COPY backend/requirements-render.txt backend/requirements-render.txt
+RUN pip install --no-cache-dir -r backend/requirements-render.txt
 COPY backend/ backend/
 RUN python -c 'from backend.app.ai.document_processor import warm_ocr_models; warm_ocr_models()'
 COPY --from=frontend /build/frontend/dist/ frontend/dist/

@@ -117,7 +117,7 @@ def test_duplicate_evidence_ids_rejected(client):
     ev_id = up_res.json()["evidence"]["id"]
 
     # Pass duplicate evidence IDs
-    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [ev_id, ev_id]})
+    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": 2, "evidence_ids": [ev_id, ev_id]})
     assert ext_res.status_code == 422
     err = ext_res.json()["error"]
     assert err["code"] == "VALIDATION_ERROR"
@@ -136,7 +136,7 @@ def test_unsupported_ai_schema_version_rejected(client, monkeypatch):
 
     monkeypatch.setattr(ai_adapter, "extract_commitments", mock_invalid_schema)
 
-    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"evidence_ids": [ev_id]})
+    ext_res = client.post(f"/api/v1/cases/{case['id']}/extractions", json={"expected_version": 2, "evidence_ids": [ev_id]})
     assert ext_res.status_code == 502
     assert ext_res.json()["error"]["code"] == "AI_INVALID_OUTPUT"
 
@@ -194,7 +194,7 @@ def test_cross_user_case_access_rejected_with_404(client, secondary_client):
     assert res_ev_content.status_code == 404
 
     # User B attempts to trigger extraction on User A's case
-    res_ext = secondary_client.post(f"/api/v1/cases/{case_a['id']}/extractions", json={"evidence_ids": [ev_id]})
+    res_ext = secondary_client.post(f"/api/v1/cases/{case_a['id']}/extractions", json={"expected_version": 2, "evidence_ids": [ev_id]})
     assert res_ext.status_code == 404
 
     # User B lists cases: User A's case is not present

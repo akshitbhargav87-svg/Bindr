@@ -11,12 +11,49 @@ Supports text extraction from:
 from __future__ import annotations
 
 import io
+import os
+from functools import lru_cache
+from threading import Lock
 from pathlib import Path
 from typing import List, Optional, Union, Callable
 from pydantic import BaseModel, Field
 
 import pymupdf
 from PIL import Image
+
+
+_ocr_lock = Lock()
+
+
+@lru_cache(maxsize=1)
+def get_ocr_engine():
+    """Share one bounded, CPU-only OCR engine per process."""
+    from rapidocr import RapidOCR
+    from rapidocr.utils.typings import OCRVersion, ModelType
+    params = {
+        "Det.ocr_version": OCRVersion.PPOCRV4,
+        "Det.model_type": ModelType.MOBILE,
+        "Rec.ocr_version": OCRVersion.PPOCRV4,
+        "Rec.model_type": ModelType.MOBILE,
+        "Global.max_side_len": 1600,
+        "Global.log_level": "warning",
+        "EngineConfig.onnxruntime.intra_op_num_threads": 1,
+        "EngineConfig.onnxruntime.inter_op_num_threads": 1,
+    }
+    if os.getenv("OCR_MODEL_DIR"):
+        params["Global.model_root_dir"] = os.environ["OCR_MODEL_DIR"]
+    return RapidOCR(params=params)
+
+
+def warm_ocr_models():
+    """Run during image build so runtime never needs model downloads."""
+    import numpy as np
+    with _ocr_lock:
+        engine = get_ocr_engine()
+        engine._load_det_model()
+        engine._load_cls_model()
+        engine._load_rec_model()
+        engine(np.full((64, 256, 3), 255, dtype=np.uint8))
 
 
 class DocumentProcessingError(Exception):
@@ -57,6 +94,9 @@ class DocumentProcessor:
     Does not persist files permanently to disk.
     """
 
+    MAX_PIXELS = 12_000_000
+    MAX_PDF_PAGES = 50
+    MAX_TEXT_CHARS = 50_000
     SUPPORTED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".txt"}
 
     # Magic byte signatures for content validation
@@ -141,6 +181,9 @@ class DocumentProcessor:
         warnings: List[str] = []
 
         total_pages = len(pdf_doc)
+        if total_pages > self.MAX_PDF_PAGES:
+            pdf_doc.close()
+            raise UnreadableDocumentError("PDF exceeds the 50-page processing limit.")
         if total_pages == 0:
             pdf_doc.close()
             return ExtractedDocument(
@@ -156,6 +199,9 @@ class DocumentProcessor:
         for page_idx in range(total_pages):
             page = pdf_doc[page_idx]
             page_text = (page.get_text() or "").strip()
+            if sum(len(part) for part in combined_text_parts) + len(page_text) > self.MAX_TEXT_CHARS:
+                pdf_doc.close()
+                raise UnreadableDocumentError("PDF exceeds the 50,000-character processing limit.")
             pages.append(DocumentPage(page_number=page_idx + 1, text=page_text))
             if page_text:
                 combined_text_parts.append(f"[Page {page_idx + 1}]\n{page_text}")
@@ -185,6 +231,8 @@ class DocumentProcessor:
         """Validate and extract text from PNG/JPG/JPEG screenshots."""
         try:
             image = Image.open(io.BytesIO(file_bytes))
+            if image.width * image.height > self.MAX_PIXELS:
+                raise UnreadableDocumentError("Image exceeds the 12-megapixel processing limit.")
             image.verify()  # Verify image integrity
             # Reopen because verify() consumes image stream
             image = Image.open(io.BytesIO(file_bytes))
@@ -204,9 +252,9 @@ class DocumentProcessor:
             # Default to RapidOCR with onnxruntime
             try:
                 import numpy as np
-                from rapidocr import RapidOCR
-                engine = RapidOCR()
-                output = engine(np.array(image.convert("RGB")))
+                with _ocr_lock:
+                    engine = get_ocr_engine()
+                    output = engine(np.array(image.convert("RGB")))
                 if output and output.txts:
                     extracted_text = "\n".join(output.txts).strip()
             except ImportError:
@@ -255,6 +303,8 @@ class DocumentProcessor:
                 raise UnreadableDocumentError(f"Cannot decode text file '{filename}': {e}") from e
 
         text = text.strip()
+        if len(text) > self.MAX_TEXT_CHARS:
+            raise UnreadableDocumentError("Text exceeds the 50,000-character processing limit.")
         is_empty = len(text) == 0
         if is_empty:
             warnings.append(f"Text file '{filename}' contains no readable content.")

@@ -43,6 +43,6 @@ export function mockCaseRow(detail:CaseDetail) {
     const dates = active.map(c => c.due_at).filter((v): v is string => v !== null).sort();
     const status = detail.case.status === 'resolved' ? 'Resolved' : !dates.length ? 'Needs a date' : dates.some(d => day(d) < MOCK_TODAY) ? 'Overdue' : dates.some(d => day(d) === MOCK_TODAY) ? 'Due today' : 'Active';
     const row=mapCaseRow(detail,status);const meta=mockApi.getCaseExtras(detail.case.id);
-    return {...row,amountMinor:detail.case.status!=='resolved' && row.amountMinor!==null ? Math.max(0,row.amountMinor-meta.receivedMinor) : row.amountMinor,partial:meta.partiallyFulfilled && detail.case.status!=='resolved',demoSeed:fixtures.some(d=>d.case.id===detail.case.id)};
+    return {...row,inrAmountMinor:detail.case.status!=='resolved' && row.inrAmountMinor!=null ? Math.max(0,row.inrAmountMinor-meta.receivedMinor) : row.inrAmountMinor,amountMinor:detail.case.status!=='resolved' && row.amountMinor!==null ? Math.max(0,row.amountMinor-meta.receivedMinor) : row.amountMinor,partial:meta.partiallyFulfilled && detail.case.status!=='resolved',demoSeed:fixtures.some(d=>d.case.id===detail.case.id)};
 }
 export const mockApi = createMockApi(fixtures,createdCases,MOCK_TODAY);

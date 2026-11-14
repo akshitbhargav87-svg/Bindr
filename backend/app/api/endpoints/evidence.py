@@ -1,14 +1,16 @@
 import uuid
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Response
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Response, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from backend.app.core.database import get_db
 from backend.app.core.auth import get_current_session, SessionData
 from backend.app.models.case import Case, utc_now_iso
 from backend.app.models.evidence import Evidence
 from backend.app.models.timeline import TimelineEvent
+from backend.app.services.case_state import claim_version
 from backend.app.schemas.contract import (
     EvidenceSchema, EvidenceUploadResponse, EvidenceListResponse
 )
@@ -38,8 +40,9 @@ def _api_error(status_code: int, code: str, message: str, details: Optional[list
 @router.post("", response_model=EvidenceUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_evidence(
     case_id: str,
+    request: Request,
     file: UploadFile = File(...),
-    expected_version: Optional[int] = Form(None),
+    expected_version: int = Form(..., gt=0),
     session: SessionData = Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
@@ -49,6 +52,9 @@ async def upload_evidence(
     Validates file format by content inspection, enforces max 10MB limit,
     hashes with SHA-256, increments case version, and records a timeline event.
     """
+    form = await request.form()
+    if sorted(form.keys()) != ["expected_version", "file"] or len(form.getlist("file")) != 1 or len(form.getlist("expected_version")) != 1:
+        _api_error(422, "VALIDATION_ERROR", "Upload exactly one file and one expected_version field.")
     case = db.query(Case).filter(Case.id == case_id, Case.owner_id == session.user_id).first()
     if not case:
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Case {case_id} not found.")
@@ -63,12 +69,22 @@ async def upload_evidence(
             f"Case version conflict: current is {case.version}, expected {expected_version}."
         )
 
+    from backend.app.services.rate_limit import enforce_limit
+    enforce_limit(("upload", session.user_id), 30, 3600)
+    file_count = db.query(Evidence).filter(Evidence.case_id == case_id).count()
+    total_bytes = db.query(func.coalesce(func.sum(Evidence.size_bytes), 0)).join(Case).filter(Case.owner_id == session.user_id).scalar()
+    if file_count >= 30 or total_bytes >= 50 * 1024 * 1024:
+        _api_error(413, "STORAGE_LIMIT", "This workspace has reached its evidence limit (30 files per case, 50 MiB total).")
     # Read uploaded file content
     try:
-        content = await file.read()
+        content = await file.read(10 * 1024 * 1024 + 1)
     except Exception as e:
         _api_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "UNREADABLE_EVIDENCE", "Could not read upload payload.")
 
+    if len(content) > 10 * 1024 * 1024:
+        _api_error(413, "FILE_TOO_LARGE", "File exceeds 10 MiB.")
+    if total_bytes + len(content) > 50 * 1024 * 1024:
+        _api_error(413, "STORAGE_LIMIT", "This workspace has reached its 50 MiB evidence limit.")
     # Check 0 bytes
     if not content or len(content) == 0:
         _api_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", "Uploaded file is empty (0 bytes).")
@@ -79,6 +95,7 @@ async def upload_evidence(
     except InvalidFileError as e:
         _api_error(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE", str(e))
 
+    claim_version(db, case, expected_version)
     evidence_id = str(uuid.uuid4())
     safe_name = sanitize_filename(file.filename)
 
@@ -108,7 +125,6 @@ async def upload_evidence(
         db.add(evidence)
 
         # Increment case version
-        case.version += 1
 
         # Prevent duplicate timeline entries
         timeline_entry = TimelineEvent(
@@ -203,12 +219,13 @@ def get_evidence_content(
     safe_name = sanitize_filename(evidence.filename)
     headers = {
         "Cache-Control": "private, no-store",
-        "X-Content-Type-Options": "nosniff",
-        "Content-Disposition": f'attachment; filename="{safe_name}"'
+        "X-Content-Type-Options": "nosniff"
     }
 
     return FileResponse(
         path=file_path,
         media_type=evidence.media_type,
+        filename=safe_name,
+        content_disposition_type="attachment",
         headers=headers
     )

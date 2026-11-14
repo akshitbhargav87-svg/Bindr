@@ -19,9 +19,9 @@ export function captureSample(scenario: Scenario) {
   return {company:scenario === 'duplicate' ? 'NovaMart' : 'Meadow Audio', title:scenario === 'duplicate' ? 'Refund for returned headphones' : 'Refund for returned order', text, communicationDate:scenario === 'duplicate' ? '2026-11-02' : MOCK_TODAY};
 }
 export function reviewFields(candidates: Candidate[]): ReviewFields[] {
-  return candidates.map(c=>({id:c.candidate_id,selected:true,kind:c.terms.kind,description:c.terms.description,amount:c.terms.amount_minor===null ? '' : String(c.terms.amount_minor/100),deadline:c.terms.due_at ? dayInIndia(c.terms.due_at) : '',originalDueAt:c.terms.due_at,quote:c.sources[0]?.quote ?? null,warnings:[...c.warnings],explanation:c.terms.due_at ? 'Review the date against the source. Edited date-only deadlines end at 23:59 in Asia/Kolkata.' : 'Choose a confirmed date, or leave it unset. A missing date never means overdue.'}));
+  return candidates.map(c=>({id:c.candidate_id,selected:true,kind:c.terms.kind,description:c.terms.description,amount:c.terms.amount_minor===null ? '' : String(c.terms.amount_minor/100),currency:c.terms.currency ?? 'INR',deadline:c.terms.due_at ? dayInIndia(c.terms.due_at) : '',originalDueAt:c.terms.due_at,quote:c.sources[0]?.quote ?? null,warnings:[...c.warnings],explanation:c.terms.due_at ? 'Review the date against the source. Edited date-only deadlines end at 23:59 in Asia/Kolkata.' : 'Choose a confirmed date, or leave it unset. A missing date never means overdue.'}));
 }
-export function manualFields(): ReviewFields[] {return [{id:'manual',selected:true,kind:'refund',description:'',amount:'',deadline:'',originalDueAt:null,quote:null,warnings:[],explanation:'Entered by you. Choose a confirmed date or leave it unset.'}];}
+export function manualFields(): ReviewFields[] {return [{id:'manual',selected:true,kind:'refund',description:'',amount:'',currency:'INR',deadline:'',originalDueAt:null,quote:null,warnings:[],explanation:'Entered by you. Choose a confirmed date or leave it unset.'}];}
 export function deadlineSummary(field: ReviewFields): string {
   if(!field.deadline)return 'This will be saved as Needs a date.';
   if(field.originalDueAt && dayInIndia(field.originalDueAt)===field.deadline) {

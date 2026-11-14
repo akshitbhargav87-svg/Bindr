@@ -15,7 +15,7 @@ test('file validation enforces supported types, empty files and the size ceiling
   assert.match(m.validateFile({size:0,type:'text/plain',name:'empty.txt'},true),/empty/);
   assert.match(m.validateFile({size:10485761,type:'application/pdf',name:'big.pdf'},true),/10 MB/);
   assert.equal(m.validateFile({size:10485760,type:'application/pdf',name:'ok.pdf'},false),null);
-  assert.match(m.validateFile({size:100,type:'image/png',name:'screen.png'},false),/backend/);
+  assert.equal(m.validateFile({size:100,type:'image/png',name:'screen.png'},false),null);
   assert.equal(m.validateFile({size:100,type:'image/png',name:'screen.png'},true),null);
 });
 test('business-day counting and date-only conversion follow the confirmed calendar rules',async()=>{
@@ -108,7 +108,7 @@ test('an upload with a lost response is reconciled by hash before any retry',asy
   const item={id:'case-1',title:source.title,merchant_name:source.company,status:'open',version:1,resolution_note:null,resolved_at:null,created_at:'2026-11-14T09:00:00Z'};
   const evidence={id:'evidence-1',case_id:item.id,filename:'company-message.txt',media_type:'text/plain',size_bytes:source.sources[0].file.size,sha256,created_at:item.created_at,download_path:'/content'};
   const extraction={id:'draft-1',case_id:item.id,evidence_ids:[evidence.id],status:'pending_review',candidates:[],reviewed_commitment_ids:[],created_at:item.created_at};
-  globalThis.document={cookie:''};globalThis.fetch=async(url,options)=>{
+  globalThis.document={cookie:''};globalThis.fetch=async(url,options)=>{if(url.endsWith('/auth/session'))return Response.json({session_id:'test',user_id:'anonymous-test',csrf_token:'token'});
     if(url.endsWith('/evidence')){uploads++;item.version=2;throw new TypeError('Upload response interrupted');}
     if(url.endsWith('/extractions'))return Response.json({extraction,case_version:3});
     if(options.method==='POST')return Response.json({case:item});
@@ -142,4 +142,11 @@ test('re-analysis recovery never restores a prior draft for a replaced communica
   assert.equal(recovered.extractionId,null);assert.deepEqual(recovered.candidates,[]);
   const retry=await m.prepareCapture(replacement,recovered,()=>{});
   assert.equal(retry.candidates[0].terms.amount_minor,300000);
+});
+
+
+test('review preserves extracted currency and clears amount/currency together',async()=>{
+  const m=await runtime();const source=input(m);const job=await m.prepareCapture(source,null,()=>{});const candidate=structuredClone(job.candidates[0]);candidate.terms.currency='USD';candidate.terms.amount_minor=12550;
+  const field=m.reviewFields([candidate])[0];assert.equal(field.amount,'125.5');assert.equal(field.currency,'USD');assert.equal(m.termsFromFields(field).currency,'USD');assert.equal(m.termsFromFields(field).amount_minor,12550);
+  field.kind='service';field.amount='';const cleared=m.termsFromFields(field);assert.equal(cleared.amount_minor,null);assert.equal(cleared.currency,null);
 });

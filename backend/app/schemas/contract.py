@@ -1,8 +1,11 @@
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-class CaseCreateRequest(BaseModel):
+class RequestModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+class CaseCreateRequest(RequestModel):
     title: str = Field(..., min_length=1, max_length=200)
     merchant_name: str = Field(..., min_length=1, max_length=200)
 
@@ -33,10 +36,10 @@ class EvidenceSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class CommitmentCreateRequest(BaseModel):
+class CommitmentCreateRequest(RequestModel):
     kind: str = Field("refund", description="Kind of commitment: refund, replacement, service, other")
     description: str = Field(..., min_length=1, max_length=2000)
-    amount_minor: Optional[int] = Field(None, ge=0, le=9007199254740991)
+    amount_minor: Optional[int] = Field(None, ge=0, le=9007199254740991, strict=True)
     currency: Optional[str] = None
     due_at: Optional[str] = None
     status: str = Field("active", description="Status: active, superseded, fulfilled")
@@ -58,10 +61,10 @@ class CommitmentCreateRequest(BaseModel):
         return v
 
 
-class CommitmentReviseRequest(BaseModel):
+class CommitmentReviseRequest(RequestModel):
     description: str = Field(..., min_length=1, max_length=2000)
     kind: Optional[str] = None
-    amount_minor: Optional[int] = Field(None, ge=0, le=9007199254740991)
+    amount_minor: Optional[int] = Field(None, ge=0, le=9007199254740991, strict=True)
     currency: Optional[str] = None
     due_at: Optional[str] = None
     evidence_ids: List[str] = []
@@ -98,15 +101,29 @@ class ExtractionSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ExtractionCreateRequest(BaseModel):
+class ExtractionCreateRequest(RequestModel):
     evidence_ids: List[str] = Field(..., min_length=1, max_length=10)
-    expected_version: Optional[int] = None
+    expected_version: int = Field(..., gt=0, strict=True)
 
 
-class ReviewItemTerms(BaseModel):
+class ReviewItemTerms(RequestModel):
+    @field_validator("due_at", check_fields=False)
+    @classmethod
+    def validate_deadline(cls, v):
+        if v is None:
+            return v
+        from datetime import datetime, timezone
+        try:
+            parsed = datetime.fromisoformat(v.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                raise ValueError("Deadline requires an explicit timezone")
+            return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Deadline must be an ISO timestamp with timezone") from exc
+
     kind: str = Field(..., description="kind: refund, replacement, service, other")
     description: str = Field(..., min_length=1, max_length=2000)
-    amount_minor: Optional[int] = Field(None, ge=0, le=9007199254740991)
+    amount_minor: Optional[int] = Field(None, ge=0, le=9007199254740991, strict=True)
     currency: Optional[str] = None
     due_at: Optional[str] = None
 
@@ -120,12 +137,12 @@ class ReviewItemTerms(BaseModel):
     @field_validator("currency")
     @classmethod
     def validate_currency(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and len(v.strip()) != 3:
+        if v is not None and (len(v.strip()) != 3 or not v.isascii() or not v.isalpha()):
             raise ValueError("currency must be a 3-letter ISO code or null")
         return v.upper() if v else None
 
 
-class ReviewItem(BaseModel):
+class ReviewItem(RequestModel):
     candidate_id: str = Field(..., pattern=r"^c[1-9][0-9]*$")
     action: str = Field(..., description="'new' or 'revision'")
     supersedes_id: Optional[str] = None
@@ -140,8 +157,8 @@ class ReviewItem(BaseModel):
         return v
 
 
-class ExtractionReviewRequest(BaseModel):
-    expected_version: Optional[int] = None
+class ExtractionReviewRequest(RequestModel):
+    expected_version: int = Field(..., gt=0, strict=True)
     decision: str = Field(..., description="'approve' or 'reject'")
     items: List[ReviewItem] = []
 

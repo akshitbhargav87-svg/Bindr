@@ -12,7 +12,7 @@ export interface CaptureJob {
 }
 export interface ReviewFields {
   id: string; selected: boolean; kind: CommitmentKind; description: string;
-  amount: string; deadline: string; originalDueAt: string | null;
+  amount: string; currency: string; deadline: string; originalDueAt: string | null;
   quote: string | null; warnings: string[]; explanation: string;
 }
 export interface CaptureSession {

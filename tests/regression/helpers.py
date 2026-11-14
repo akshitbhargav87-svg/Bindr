@@ -50,7 +50,9 @@ def candidate(eid, quote=TEXT):
 
 def stub_draft(monkeypatch, module, client, cid, eid):
     # Inject at AI boundary so review validation is tested independently of provider mapping.
-    output = {'schema_version': 1, 'candidates': [candidate(eid)]}
+    source = client.get(f'/api/v1/cases/{cid}/evidence/{eid}/content')
+    assert source.status_code == 200
+    output = {'schema_version': 1, 'candidates': [candidate(eid, quote=source.content.decode('utf-8'))]}
     monkeypatch.setattr(module.ai_adapter, 'extract_commitments', lambda **kw: deepcopy(output))
     r = extract(client, cid, [eid])
     assert r.status_code == 201

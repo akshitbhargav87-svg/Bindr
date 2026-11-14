@@ -1,21 +1,28 @@
 import uuid
 import logging
+import os
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.app.core.config import settings
 from backend.app.core.database import Base, engine, run_sqlite_migrations
 from backend.app.api.router import api_router
+from backend.app.core.auth import get_auth_secret
 
 logger = logging.getLogger("backend.app.main")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    get_auth_secret()  # Reject a weak or absent production signing key before serving traffic.
     # Initialize SQLite tables and run non-destructive schema migrations
     Base.metadata.create_all(bind=engine)
     run_sqlite_migrations(engine)
@@ -23,8 +30,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    description="Promise Keeper Backend - Milestones 1-3",
+    title="Bindr API",
+    description="Evidence-linked promises with human-confirmed terms and outcomes.",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -46,7 +53,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     details = []
     for err in exc.errors():
         loc = [str(x) for x in err.get("loc", []) if x not in ("body",)]
-        field_name = ".".join(loc) if loc else None
+        field_name = ".".join(loc) if loc else "request"
         details.append({
             "field": field_name,
             "message": str(err.get("msg", "Invalid input"))
@@ -125,10 +132,38 @@ app.include_router(api_router, prefix="/api/v1")
 app.include_router(api_router, prefix="/api")
 
 
-@app.get("/")
-def root():
-    return {
-        "message": "Welcome to Promise Keeper API",
-        "docs": "/docs",
-        "health": "/api/health"
-    }
+@app.middleware("http")
+async def private_response_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["X-Frame-Options"] = "DENY"
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
+@app.get("/healthz", include_in_schema=False)
+def readiness():
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return {"status": "healthy", "service": "Bindr"}
+
+
+# One origin for the browser, API, session and private downloads. API routes above
+# retain their JSON 404s; BrowserRouter deep links receive the built application.
+frontend_dir = Path(os.getenv("FRONTEND_DIST_DIR", "frontend/dist")).resolve()
+if (frontend_dir / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets")
+
+
+@app.get("/{path:path}", include_in_schema=False)
+def frontend(path: str):
+    if path == "api" or path.startswith("api/"):
+        return JSONResponse(status_code=404, content={"error": {"code": "NOT_FOUND", "message": "Route not found", "details": [], "request_id": str(uuid.uuid4())}})
+    candidate = (frontend_dir / path).resolve()
+    if candidate.is_relative_to(frontend_dir) and candidate.is_file():
+        return FileResponse(candidate)
+    if (frontend_dir / "index.html").is_file():
+        return FileResponse(frontend_dir / "index.html", headers={"Cache-Control": "no-cache"})
+    return JSONResponse(status_code=503, content={"message": "Build the Bindr frontend before starting the combined app."})

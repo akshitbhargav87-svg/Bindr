@@ -14,7 +14,7 @@ def test_timeline_lifecycle(client):
 
     # 2. Upload Evidence
     files = {"file": ("proof.png", io.BytesIO(PNG_BYTES), "image/png")}
-    ev_res = client.post(f"/api/v1/cases/{case_id}/evidence", files=files)
+    ev_res = client.post(f"/api/v1/cases/{case_id}/evidence", files=files, data={"expected_version": 1})
     assert ev_res.status_code == 201
 
     # 3. Create Commitment

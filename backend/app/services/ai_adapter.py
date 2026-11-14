@@ -26,8 +26,10 @@ from __future__ import annotations
 import os
 import re
 import logging
+import math
+from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from backend.app.core.config import settings
 
 logger = logging.getLogger("backend.app.services.ai_adapter")
@@ -223,6 +225,7 @@ class AIModuleAdapter:
 
         candidates = []
         candidate_counter = 1
+        total_extracted_chars = 0
 
         try:
             try:
@@ -267,6 +270,7 @@ class AIModuleAdapter:
                             filename=fname,
                             evidence_id=eid,
                             metadata=source_meta,
+                            provider=self._get_engine().provider,
                             fallback_on_error=False,
                             timeout=self.timeout_seconds,
                         )
@@ -282,12 +286,21 @@ class AIModuleAdapter:
                 except AIAuthenticationError as e:
                     raise AIServiceUnavailableError(f"Meta provider authentication failed: {e}", code="AI_UNAVAILABLE") from e
                 except (AIConnectionError, AIRateLimitError) as e:
+                    if "timed out" in str(e).lower() or "timeout" in str(e).lower():
+                        raise AITimeoutError("AI provider request timed out.") from e
                     raise AIServiceUnavailableError(f"Meta provider connection failed: {e}", code="AI_UNAVAILABLE") from e
                 except AIResponseParsingError as e:
                     raise AIInvalidOutputError(f"AI response parsing error: {e}") from e
                 except (TimeoutError, AITimeoutError) as e:
                     raise AITimeoutError(f"AI provider request timed out: {e}") from e
 
+                raw_text = getattr(result, "raw_source_text", "") or text_content or ""
+                if not raw_text.strip():
+                    raise UnreadableEvidenceError("No readable text could be extracted from the evidence.")
+                ev["text"] = raw_text
+                total_extracted_chars += len(raw_text)
+                if total_extracted_chars > 50000:
+                    raise AIValidationError("Total evidence text exceeds 50,000 characters limit.")
                 if result.commitment_category.value == "no_commitment":
                     continue
 
@@ -298,7 +311,7 @@ class AIModuleAdapter:
                     ev["text"] = raw_text
                 evidence_text = raw_text or text_content or ""
                 if not source_quote:
-                    source_quote = evidence_text[:min(120, len(evidence_text))] if evidence_text else "Commitment stated in evidence"
+                    raise AIInvalidOutputError("A commitment candidate requires an exact source quotation.")
 
                 if evidence_text and source_quote not in evidence_text:
                     raise AIInvalidOutputError(
@@ -312,14 +325,21 @@ class AIModuleAdapter:
                 if getattr(result, "amount", None) is not None:
                     if result.amount < 0:
                         raise AIInvalidOutputError("Model extracted a negative monetary amount.")
-                    amt_minor = int(round(result.amount * 100))
+                    try:
+                        decimal_amount = Decimal(str(result.amount))
+                        if not decimal_amount.is_finite():
+                            raise AIInvalidOutputError("Extracted amount must be finite.")
+                        amt_minor = int((decimal_amount * 100).quantize(Decimal("1")))
+                    except (InvalidOperation, ValueError, OverflowError) as exc:
+                        raise AIInvalidOutputError("Extracted amount is invalid.") from exc
                     if amt_minor < 0 or amt_minor > 9007199254740991:
                         raise AIInvalidOutputError("Extracted amount_minor out of allowable range (0 - 9007199254740991).")
 
                 curr = getattr(result, "currency", None)
+                curr = {"₹": "INR", "RS": "INR", "RS.": "INR", "$": "USD", "€": "EUR", "£": "GBP"}.get((curr or "").strip().upper(), curr)
                 if curr:
                     curr = curr.strip().upper()
-                    if len(curr) != 3:
+                    if not re.fullmatch(r"[A-Z]{3}", curr):
                         curr = None
 
                 # Amount and currency pairing rule
@@ -331,6 +351,15 @@ class AIModuleAdapter:
                 if kind_val not in {"refund", "replacement", "service", "other"}:
                     kind_val = "other"
 
+                warnings = list(result.missing_or_ambiguous_fields or [])
+                warnings.append("AI suggestions require your review; confidence is not calibrated.")
+                if provider_name == "mock":
+                    warnings.append("Offline rule-based extraction; no live AI provider was used.")
+                due_at = _confirmed_deadline(result, ev.get("occurred_at"), warnings)
+                revision = {"relation": "new", "supersedes_id": None, "reason": "Initial commitment candidate"}
+                active = [c for c in (existing_commitments or []) if c.get("status") == "active"]
+                if active:
+                    revision = {"relation": "uncertain", "supersedes_id": None, "reason": "Existing promises are on record; confirm whether this message revises one or adds a separate promise."}
                 cand_id = f"c{candidate_counter}"
                 candidate_counter += 1
 
@@ -341,7 +370,7 @@ class AIModuleAdapter:
                         "description": result.commitment_description[:2000].strip(),
                         "amount_minor": amt_minor,
                         "currency": curr,
-                        "due_at": None
+                        "due_at": due_at
                     },
                     "sources": [
                         {
@@ -349,13 +378,9 @@ class AIModuleAdapter:
                             "quote": source_quote
                         }
                     ],
-                    "confidence": 0.95,
-                    "warnings": result.missing_or_ambiguous_fields or [],
-                    "revision": {
-                        "relation": "new",
-                        "supersedes_id": None,
-                        "reason": "Initial commitment candidate"
-                    }
+                    "confidence": 0.0,
+                    "warnings": list(dict.fromkeys(warnings)),
+                    "revision": revision
                 })
 
             output_dict = {
@@ -428,194 +453,124 @@ class AIModuleAdapter:
         }
 
 
-def validate_ai_extraction_output(
-    data: Any,
-    evidence_items: List[Dict[str, Any]],
-    existing_commitments: Optional[List[Dict[str, Any]]] = None
-) -> None:
+def _confirmed_deadline(result, occurred_at, warnings):
+    """Resolve only explicit timezone-aware instants or anchored elapsed durations.
+
+    Date-only deadlines, business-day calendars and unknown communication dates
+    remain editable suggestions requiring human confirmation (AI_CONTRACT v1).
     """
-    Validates AI extraction output strictly against docs/AI_CONTRACT.md.
-    Rejects all six malformed AI-output variants before draft persistence:
-    1. Schema version and top-level shape (schema_version == 1, exactly expected root keys).
-    2. Candidate shape, count (0-10), candidate_id pattern (^c[1-9][0-9]*$), and uniqueness.
-    3. Terms validation (kind in {refund, replacement, service, other}, description 1-2000 chars, amount bounds).
-    4. Money pairing rules (amount_minor and currency must both be present or both null).
-    5. Sources and verbatim citation (no invented evidence IDs, non-empty quotes <= 2000 chars, verbatim match).
-    6. Metadata and revision shape (confidence in [0, 1], warnings string list, valid revision relation/reason).
-    """
-    if not isinstance(data, dict):
-        raise AIInvalidOutputError("AI output must be a JSON object.")
+    deadline = getattr(result, "deadline", None)
+    if deadline is None:
+        warnings.append("No confirmed deadline; add a date during review.")
+        return None
+    kind = getattr(deadline.deadline_type, "value", deadline.deadline_type)
+    raw = deadline.absolute_date if kind == "absolute_date" else None
+    try:
+        if raw and re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})", raw):
+            instant = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            return instant.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if kind == "duration" and occurred_at and deadline.duration_unit in {"hours", "calendar_days", "weeks"}:
+            # A range's upper bound is only a suggestion, clearly explained.
+            amount = deadline.duration_value_max or deadline.duration_value
+            if amount is not None and math.isfinite(amount) and 0 <= amount <= 3650:
+                anchor = datetime.fromisoformat(occurred_at.replace("Z", "+00:00"))
+                if anchor.tzinfo is not None:
+                    delta = timedelta(**{{"hours": "hours", "calendar_days": "days", "weeks": "weeks"}[deadline.duration_unit]: amount})
+                    if deadline.duration_value_max is not None:
+                        warnings.append("Deadline uses the stated range's upper bound; confirm during review.")
+                    return (anchor + delta).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except (ValueError, OverflowError, TypeError):
+        pass
+    if kind != "none":
+        text = deadline.raw_deadline_text or raw or "Stated timeframe"
+        warnings.append(f"Confirm deadline and timezone: {text}"[:500])
+    else:
+        warnings.append("No confirmed deadline; add a date during review.")
+    return None
 
-    # 1. Schema version & Top-Level Keys ("All keys required, no extras.")
-    if "schema_version" not in data or data.get("schema_version") != 1:
-        raise AIInvalidOutputError("Unsupported or missing AI schema version (expected 1).")
 
-    if "candidates" not in data or not isinstance(data["candidates"], list):
-        raise AIInvalidOutputError("AI output missing 'candidates' array.")
-
-    for key in data.keys():
-        if key not in ("schema_version", "candidates"):
-            raise AIInvalidOutputError(f"Unexpected root key '{key}' in AI output.")
-
+def validate_ai_extraction_output(data, evidence_items, existing_commitments=None):
+    """Reject malformed adapter output before any draft is persisted."""
+    def fail(message):
+        raise AIInvalidOutputError(message)
+    def shape(value, keys, label):
+        if not isinstance(value, dict) or set(value) != set(keys):
+            fail(f"{label} must contain exactly the required keys.")
+    shape(data, {"schema_version", "candidates"}, "AI output")
+    if type(data["schema_version"]) is not int or data["schema_version"] != 1:
+        fail("Unsupported AI schema version.")
     candidates = data["candidates"]
-    if len(candidates) > 10:
-        raise AIInvalidOutputError(f"AI output contains {len(candidates)} candidates (max 10 allowed).")
-
-    allowed_evidence_ids = {e["evidence_id"] for e in evidence_items}
-    evidence_text_map = {}
-    for e in evidence_items:
-        eid = e["evidence_id"]
-        txt = e.get("text")
-        if not txt and e.get("file_bytes"):
+    if not isinstance(candidates, list) or len(candidates) > 10:
+        fail("Candidates must be an array of at most 10 items.")
+    texts = {}
+    for ev in evidence_items:
+        text = ev.get("text")
+        if text is None and ev.get("file_bytes") and ev.get("media_type", "text/plain") == "text/plain":
             try:
-                txt = e["file_bytes"].decode("utf-8", errors="ignore")
-            except Exception:
-                txt = ""
-        evidence_text_map[eid] = txt or ""
-    active_comm_ids = {c["id"] for c in (existing_commitments or []) if c.get("status") == "active"}
-
-    seen_candidate_ids = set()
-    candidate_id_regex = re.compile(r"^c[1-9][0-9]*$")
-
-    for idx, cand in enumerate(candidates):
-        if not isinstance(cand, dict):
-            raise AIInvalidOutputError(f"Candidate at index {idx} must be a JSON object.")
-
-        required_cand_keys = {"candidate_id", "terms", "sources", "confidence", "warnings", "revision"}
-        missing_keys = required_cand_keys - set(cand.keys())
-        if missing_keys:
-            raise AIInvalidOutputError(f"Candidate at index {idx} missing required keys: {sorted(missing_keys)}.")
-
-        # 2. Candidate ID
-        cand_id = cand.get("candidate_id")
-        if not isinstance(cand_id, str) or not candidate_id_regex.match(cand_id):
-            raise AIInvalidOutputError(f"Candidate ID '{cand_id}' violates pattern '^c[1-9][0-9]*$'.")
-        if cand_id in seen_candidate_ids:
-            raise AIInvalidOutputError(f"Duplicate candidate ID '{cand_id}' in extraction draft.")
-        seen_candidate_ids.add(cand_id)
-
-        # 3. Terms
-        terms = cand.get("terms")
-        if not isinstance(terms, dict):
-            raise AIInvalidOutputError(f"Candidate '{cand_id}' terms must be an object.")
-
-        kind = terms.get("kind")
-        if kind not in {"refund", "replacement", "service", "other"}:
-            raise AIInvalidOutputError(f"Candidate '{cand_id}' terms.kind '{kind}' is invalid.")
-
-        description = terms.get("description")
-        if not isinstance(description, str) or not description.strip() or len(description) > 2000:
-            raise AIInvalidOutputError(f"Candidate '{cand_id}' description must be 1-2000 characters.")
-
-        amount_minor = terms.get("amount_minor")
-        currency = terms.get("currency")
-
-        if amount_minor is not None:
-            if not isinstance(amount_minor, int) or isinstance(amount_minor, bool) or amount_minor < 0 or amount_minor > 9007199254740991:
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' amount_minor must be an integer between 0 and 9007199254740991.")
-
-        if currency is not None:
-            if not isinstance(currency, str) or len(currency.strip()) != 3:
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' currency must be a 3-letter ISO code.")
-
-        # 4. Money Pairing Rule
-        if (amount_minor is None and currency is not None) or (amount_minor is not None and currency is None):
-            raise AIInvalidOutputError(f"Candidate '{cand_id}' violates money pairing: amount_minor and currency must both be present or both null.")
-
-        # 5. Sources & Citations
-        sources = cand.get("sources")
-        if not isinstance(sources, list) or len(sources) < 1 or len(sources) > 10:
-            raise AIInvalidOutputError(f"Candidate '{cand_id}' sources must contain 1 to 10 citations.")
-
-        seen_source_eids = set()
-        for s_idx, src in enumerate(sources):
-            if not isinstance(src, dict):
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' source at index {s_idx} must be an object.")
-            eid = src.get("evidence_id")
-            quote = src.get("quote")
-
-            if not eid or eid not in allowed_evidence_ids:
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' cites evidence ID '{eid}' not present in extraction request.")
-            if eid in seen_source_eids:
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' cites duplicate evidence ID '{eid}'.")
-            seen_source_eids.add(eid)
-
-            if not isinstance(quote, str) or not quote.strip() or len(quote) > 2000:
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' quote must be a non-empty string of at most 2000 characters.")
-
-            # Verbatim substring validation against cited document
-            ev_text = evidence_text_map.get(eid, "")
-            if ev_text and quote not in ev_text:
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' quote is not a verbatim substring of cited evidence '{eid}'.")
-
-        # 6. Metadata & Revision
-        confidence = cand.get("confidence")
-        if not isinstance(confidence, (int, float)) or isinstance(confidence, bool) or confidence < 0.0 or confidence > 1.0:
-            raise AIInvalidOutputError(f"Candidate '{cand_id}' confidence must be a finite float between 0.0 and 1.0.")
-
-        warnings = cand.get("warnings")
-        if not isinstance(warnings, list):
-            raise AIInvalidOutputError(f"Candidate '{cand_id}' warnings must be an array.")
-        for w in warnings:
-            if not isinstance(w, str) or len(w) < 1 or len(w) > 500:
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' warning item must be a string of 1-500 characters.")
-
-        revision = cand.get("revision")
-        if not isinstance(revision, dict):
-            raise AIInvalidOutputError(f"Candidate '{cand_id}' revision must be an object.")
-
-        relation = revision.get("relation")
-        if relation not in {"new", "revision", "uncertain"}:
-            raise AIInvalidOutputError(f"Candidate '{cand_id}' revision.relation '{relation}' is invalid.")
-
-        reason = revision.get("reason")
-        if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
-            raise AIInvalidOutputError(f"Candidate '{cand_id}' revision.reason must be 1-1000 characters.")
-
-        supersedes_id = revision.get("supersedes_id")
-        if relation in ("new", "uncertain") and supersedes_id is not None:
-            raise AIInvalidOutputError(f"Candidate '{cand_id}' revision relation '{relation}' requires supersedes_id to be null.")
-        if relation == "revision":
-            if not supersedes_id:
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' revision relation 'revision' requires non-null supersedes_id.")
-            if active_comm_ids and supersedes_id not in active_comm_ids:
-                raise AIInvalidOutputError(f"Candidate '{cand_id}' supersedes_id '{supersedes_id}' is not an active commitment in this case.")
-
-    def _mock_extraction_contract_response(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Explicitly labeled mock adapter output for development and unit testing."""
-        first_ev = payload["evidence"][0]
-        ev_id = first_ev["evidence_id"]
-        text = first_ev.get("text", "Extracted evidence text")
-        snippet = text[:min(60, len(text))]
-
-        return {
-            "schema_version": 1,
-            "candidates": [
-                {
-                    "candidate_id": "c1",
-                    "terms": {
-                        "kind": "refund",
-                        "description": f"Extracted candidate promise: '{snippet}'",
-                        "amount_minor": None,
-                        "currency": None,
-                        "due_at": None
-                    },
-                    "sources": [
-                        {
-                            "evidence_id": ev_id,
-                            "quote": snippet
-                        }
-                    ],
-                    "confidence": 0.90,
-                    "warnings": ["Human confirmation required before saving"],
-                    "revision": {
-                        "relation": "new",
-                        "supersedes_id": None,
-                        "reason": "Development mock candidate"
-                    }
-                }
-            ]
-        }
+                text = ev["file_bytes"].decode("utf-8")
+            except UnicodeDecodeError:
+                text = ""
+        texts[ev["evidence_id"]] = text or ""
+    active_ids = {c["id"] for c in (existing_commitments or []) if c.get("status") == "active"}
+    seen = set()
+    for cand in candidates:
+        shape(cand, {"candidate_id", "terms", "sources", "confidence", "warnings", "revision"}, "Candidate")
+        cid = cand["candidate_id"]
+        if not isinstance(cid, str) or not re.fullmatch(r"c[1-9][0-9]*", cid) or cid in seen:
+            fail("Invalid or duplicate candidate ID.")
+        seen.add(cid)
+        terms = cand["terms"]
+        shape(terms, {"kind", "description", "amount_minor", "currency", "due_at"}, "Terms")
+        if terms["kind"] not in {"refund", "replacement", "service", "other"}:
+            fail("Invalid commitment kind.")
+        if not isinstance(terms["description"], str) or not 1 <= len(terms["description"].strip()) <= 2000:
+            fail("Invalid commitment description.")
+        amount, currency = terms["amount_minor"], terms["currency"]
+        if amount is not None and (type(amount) is not int or not 0 <= amount <= 9007199254740991):
+            fail("amount_minor must be a nonnegative safe integer.")
+        if currency is not None and (not isinstance(currency, str) or not re.fullmatch(r"[A-Z]{3}", currency)):
+            fail("Currency must be an uppercase ISO code.")
+        if (amount is None) != (currency is None):
+            fail("Amount and currency must both be present or both null.")
+        due = terms["due_at"]
+        if due is not None:
+            if not isinstance(due, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", due):
+                fail("due_at must be a UTC timestamp or null.")
+            try:
+                datetime.fromisoformat(due.replace("Z", "+00:00"))
+            except ValueError:
+                fail("Invalid calendar timestamp.")
+        sources = cand["sources"]
+        if not isinstance(sources, list) or not 1 <= len(sources) <= 10:
+            fail("Candidate requires 1-10 sources.")
+        source_ids = set()
+        for source in sources:
+            shape(source, {"evidence_id", "quote"}, "Source")
+            eid, quote = source["evidence_id"], source["quote"]
+            if not isinstance(eid, str) or eid not in texts or eid in source_ids:
+                fail("Source must reference unique evidence from this extraction.")
+            source_ids.add(eid)
+            if not isinstance(quote, str) or not 1 <= len(quote) <= 2000 or not quote.strip():
+                fail("Source quote must be nonempty and at most 2000 characters.")
+            if not texts[eid] or quote not in texts[eid]:
+                fail("Quote is not a verbatim substring of its cited evidence.")
+        score = cand["confidence"]
+        if type(score) not in (int, float) or not math.isfinite(score) or not 0 <= score <= 1:
+            fail("Confidence must be finite and between 0 and 1.")
+        warnings = cand["warnings"]
+        if not isinstance(warnings, list) or any(not isinstance(w, str) or not 1 <= len(w) <= 500 for w in warnings):
+            fail("Invalid warning array.")
+        rev = cand["revision"]
+        shape(rev, {"relation", "supersedes_id", "reason"}, "Revision")
+        if rev["relation"] not in {"new", "revision", "uncertain"}:
+            fail("Invalid revision relation.")
+        if not isinstance(rev["reason"], str) or not 1 <= len(rev["reason"].strip()) <= 1000:
+            fail("Invalid revision explanation.")
+        if rev["relation"] == "revision":
+            if not isinstance(rev["supersedes_id"], str) or rev["supersedes_id"] not in active_ids:
+                fail("Revision must reference an active commitment in this case.")
+        elif rev["supersedes_id"] is not None:
+            fail("New or uncertain revision must not name a predecessor.")
 
 
 ai_adapter = AIModuleAdapter()

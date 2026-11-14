@@ -1,25 +1,16 @@
-"""
-Authentication & Browser Session Bootstrap Endpoints.
-
-Adheres to docs/API_CONTRACT.md:
-- Supplies opaque `pk_session` HttpOnly cookie.
-- Supplies readable `pk_csrf` cookie (and echoes CSRF token in response payload)
-  so frontend can pass it in `X-CSRF-Token` on every state-mutating request.
-- Provides session inspection and termination endpoints.
-"""
-
-from typing import Optional, Dict, Any
-from fastapi import APIRouter, Response, Depends, status
-from pydantic import BaseModel, Field
-
-from backend.app.core.auth import create_authenticated_session, get_current_session, SessionData
+"""Browser-owned anonymous workspaces; no caller can choose an existing owner."""
+import uuid
+from typing import Optional
+from fastapi import APIRouter, Response, Depends, Request, HTTPException, status
+from pydantic import BaseModel, ConfigDict
+from backend.app.core.auth import (create_authenticated_session, get_current_session,
+                                   verify_session_token, generate_csrf_token, SessionData)
+from backend.app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-
 class SessionBootstrapRequest(BaseModel):
-    user_id: Optional[str] = Field("demo-user", description="Identity to bootstrap session for.")
-
+    model_config = ConfigDict(extra="forbid")
 
 class SessionBootstrapResponse(BaseModel):
     session_id: str
@@ -27,62 +18,46 @@ class SessionBootstrapResponse(BaseModel):
     csrf_token: str
 
 
-@router.post("/session", response_model=SessionBootstrapResponse, status_code=status.HTTP_201_CREATED)
-def create_session(
-    response: Response,
-    payload: Optional[SessionBootstrapRequest] = None
-):
-    """
-    Bootstrap a legitimate browser session and CSRF token.
-    Sets HttpOnly `pk_session` cookie and readable `pk_csrf` cookie.
-    """
-    user_id = payload.user_id if payload and payload.user_id else "demo-user"
-    token, csrf_token = create_authenticated_session(user_id=user_id)
-    session_id = token.split(".")[0]
+def _check_origin(request: Request):
+    origin = request.headers.get("origin")
+    same_origin = str(request.base_url).rstrip("/")
+    allowed = {o.rstrip("/") for o in settings.CORS_ORIGINS} | {same_origin}
+    if origin and origin.rstrip("/") not in allowed:
+        raise HTTPException(403, detail="Origin is not permitted.")
 
-    # Set HttpOnly session cookie
-    response.set_cookie(
-        key="pk_session",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        secure=False,
-        path="/"
-    )
-    # Set client-readable CSRF token cookie for frontend integration
-    response.set_cookie(
-        key="pk_csrf",
-        value=csrf_token,
-        httponly=False,
-        samesite="lax",
-        secure=False,
-        path="/"
-    )
-
-    return SessionBootstrapResponse(
-        session_id=session_id,
-        user_id=user_id,
-        csrf_token=csrf_token
-    )
-
+@router.post("/session", response_model=SessionBootstrapResponse, status_code=201)
+def create_session(request: Request, response: Response,
+                   payload: Optional[SessionBootstrapRequest] = None):
+    _check_origin(request)
+    from backend.app.services.rate_limit import enforce_limit
+    enforce_limit(("session", request.client.host if request.client else "unknown"), 60, 60)
+    existing = request.cookies.get("pk_session", "")
+    verified = verify_session_token(existing)
+    if verified:
+        session_id, user_id = verified
+        token, csrf_token = existing, generate_csrf_token(session_id)
+    else:
+        user_id = str(uuid.uuid4())
+        token, csrf_token = create_authenticated_session(user_id=user_id)
+        session_id = token.split(".")[0]
+    secure = settings.ENVIRONMENT.lower() in {"production", "prod", "staging", "deployed"}
+    for key, value, http_only in (("pk_session", token, True), ("pk_csrf", csrf_token, False)):
+        response.set_cookie(key, value, httponly=http_only, samesite="lax", secure=secure,
+                            path="/", max_age=settings.SESSION_LIFETIME_SECONDS)
+    response.headers["Cache-Control"] = "no-store"
+    return SessionBootstrapResponse(session_id=session_id, user_id=user_id, csrf_token=csrf_token)
 
 @router.get("/session", response_model=SessionBootstrapResponse)
-def get_session(session: SessionData = Depends(get_current_session)):
-    """
-    Inspect the currently active authenticated session and retrieve its CSRF token.
-    """
-    return SessionBootstrapResponse(
-        session_id=session.session_id,
-        user_id=session.user_id,
-        csrf_token=session.csrf_token
-    )
-
+def get_session(response: Response, session: SessionData = Depends(get_current_session)):
+    response.headers["Cache-Control"] = "no-store"
+    secure = settings.ENVIRONMENT.lower() in {"production", "prod", "staging", "deployed"}
+    response.set_cookie("pk_csrf", session.csrf_token, httponly=False, samesite="lax",
+                        secure=secure, path="/", max_age=settings.SESSION_LIFETIME_SECONDS)
+    return SessionBootstrapResponse(session_id=session.session_id, user_id=session.user_id,
+                                    csrf_token=session.csrf_token)
 
 @router.delete("/session")
-def delete_session(response: Response):
-    """
-    Terminate session and clear browser authentication cookies.
-    """
-    response.delete_cookie(key="pk_session", path="/")
-    response.delete_cookie(key="pk_csrf", path="/")
-    return {"message": "Session terminated successfully."}
+def delete_session(response: Response, session: SessionData = Depends(get_current_session)):
+    response.delete_cookie("pk_session", path="/")
+    response.delete_cookie("pk_csrf", path="/")
+    return {"message": "Browser session cleared. This anonymous workspace cannot be recovered without its cookie."}

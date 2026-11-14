@@ -92,7 +92,7 @@ class PromiseExtractionEngine:
             return self._post_process_result(result, text=text, metadata=metadata)
 
         except (AIAuthenticationError, AIConnectionError, AIRateLimitError, AIResponseParsingError, AIProviderError) as e:
-            logger.error(f"AI Provider error during promise extraction: {e}")
+            logger.warning("AI provider extraction failed (%s)", type(e).__name__)
             if self.fallback_on_error:
                 return self._create_safe_fallback_result(text=text, error_message=str(e), metadata=metadata)
             raise

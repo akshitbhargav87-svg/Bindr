@@ -2,7 +2,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-from sqlalchemy import Column, String, Integer, Text, ForeignKey
+from sqlalchemy import Column, String, Integer, BigInteger, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -20,7 +20,7 @@ class Commitment(Base):
     candidate_id = Column(String(50), nullable=True)
     kind = Column(String(50), nullable=False, default="refund")  # refund, replacement, service, other
     description = Column(Text, nullable=False)
-    amount_minor = Column(Integer, nullable=True)
+    amount_minor = Column(BigInteger, nullable=True)
     currency = Column(String(3), nullable=True)
     due_at = Column(String(50), nullable=True)
     status = Column(String(50), nullable=False, default="active")  # active, superseded, fulfilled

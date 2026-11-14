@@ -10,5 +10,13 @@ def test_health_endpoint(client):
 
 def test_root_endpoint(client):
     res = client.get("/")
-    assert res.status_code == 200
-    assert "Welcome" in res.json()["message"]
+    from pathlib import Path
+    from backend.app.main import frontend_dir
+    if Path(frontend_dir, "index.html").is_file():
+        assert res.status_code == 200
+        assert "text/html" in res.headers["content-type"]
+        assert '<div id="root">' in res.text
+    else:
+        assert res.status_code == 503
+    ready = client.get("/healthz")
+    assert ready.status_code == 200

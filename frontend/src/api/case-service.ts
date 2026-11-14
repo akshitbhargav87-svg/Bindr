@@ -12,7 +12,7 @@ export function caseReference(id:string) {return `BND-${id.slice(-8).toUpperCase
 export async function loadCase(id:string):Promise<CaseView> {
   const detail=await api.getCase(id);const meta=isMock ? mockApi.getCaseExtras(id) : emptyCaseExtras();const row=isMock ? mockCaseRow(detail) : mapCaseRow(detail);
   const current=detail.commitments.filter(c=>c.status===(detail.case.status==='resolved' ? 'fulfilled' : 'active'));
-  const monetary=current.filter(c=>c.amount_minor!==null && c.currency==='INR');
+  const monetary=current.filter(c=>c.amount_minor!==null && c.currency===row.currency);
   const totalMinor=monetary.length ? monetary.reduce((n,c)=>n+c.amount_minor!,0) : null;
   return {detail,meta,row,totalMinor,outstandingMinor:detail.case.status==='resolved' ? totalMinor===null ? null : 0 : row.amountMinor};
 }

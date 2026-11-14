@@ -15,6 +15,7 @@ from backend.app.schemas.contract import (
     ExtractionCreateResponse, ExtractionReviewResponse, CommitmentSchema
 )
 from backend.app.services.storage import storage_service
+from backend.app.services.case_state import claim_version
 from backend.app.services.ai_adapter import (
     ai_adapter,
     validate_ai_extraction_output,
@@ -129,6 +130,8 @@ def create_extraction(
         for c in case.commitments
     ]
 
+    from backend.app.services.rate_limit import enforce_limit
+    enforce_limit(("extract", session.user_id), 30, 3600)
     # Invoke AI adapter boundary and strictly validate candidates against AI_CONTRACT
     try:
         ai_result = ai_adapter.extract_commitments(
@@ -139,16 +142,19 @@ def create_extraction(
         )
         validate_ai_extraction_output(ai_result, evidence_items, existing_comm_schemas)
     except AITimeoutError as e:
-        _api_error(status.HTTP_504_GATEWAY_TIMEOUT, "AI_TIMEOUT", str(e))
+        _api_error(status.HTTP_504_GATEWAY_TIMEOUT, "AI_TIMEOUT", "Extraction timed out. Refresh before trying again.")
     except AIServiceUnavailableError as e:
-        _api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "AI_UNAVAILABLE", str(e))
+        _api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "AI_UNAVAILABLE", "The extraction provider is unavailable.")
     except AIInvalidOutputError as e:
-        _api_error(status.HTTP_502_BAD_GATEWAY, "AI_INVALID_OUTPUT", str(e))
-    except (AIValidationError, UnreadableEvidenceError) as e:
-        _api_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", str(e))
+        _api_error(status.HTTP_502_BAD_GATEWAY, "AI_INVALID_OUTPUT", "The extraction provider returned invalid output. No draft was saved.")
+    except UnreadableEvidenceError:
+        _api_error(422, "UNREADABLE_EVIDENCE", "No readable text was found in the selected evidence.")
+    except AIValidationError:
+        _api_error(422, "VALIDATION_ERROR", "The selected evidence could not be processed.")
     except Exception as e:
         _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "AI extraction failed.")
 
+    claim_version(db, case, payload.expected_version)
     # Persist pending_review draft
     now_iso = utc_now_iso()
     extraction = Extraction(
@@ -161,7 +167,6 @@ def create_extraction(
     extraction.reviewed_commitment_ids = []
 
     db.add(extraction)
-    case.version += 1
 
     timeline = TimelineEvent(
         case_id=case_id,
@@ -241,8 +246,8 @@ def review_extraction(
                 "VALIDATION_ERROR",
                 "Rejecting an extraction requires items: []."
             )
+        claim_version(db, case, payload.expected_version)
         extraction.status = "rejected"
-        case.version += 1
 
         timeline = TimelineEvent(
             case_id=case_id,
@@ -271,7 +276,7 @@ def review_extraction(
         }
 
     # --- APPROVE BRANCH ---
-    if not payload.items or len(payload.items) < 1:
+    if not payload.items or len(payload.items) < 1 or len(payload.items) > 10:
         _api_error(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "VALIDATION_ERROR",
@@ -281,6 +286,7 @@ def review_extraction(
     valid_candidate_ids = {c.get("candidate_id") for c in extraction.candidates if isinstance(c, dict)}
     seen_candidate_ids = set()
     created_commitments: List[Commitment] = []
+    seen_predecessors = set()
 
     for idx, item in enumerate(payload.items):
         # 1. Reject invented candidate IDs
@@ -324,12 +330,12 @@ def review_extraction(
 
         # 4. Reject non-positive refund amounts
         if item.terms.kind == "refund":
-            if amt is None or amt <= 0 or curr is None:
+            if amt is None or amt < 0 or curr is None:
                 _api_error(
                     status.HTTP_422_UNPROCESSABLE_ENTITY,
                     "VALIDATION_ERROR",
-                    "A reviewed refund commitment requires both positive amount_minor and valid currency.",
-                    details=[{"field": f"items[{idx}].terms.amount_minor", "message": "Reviewed refund commitment requires positive amount_minor"}]
+                    "A reviewed refund commitment requires both amount_minor and valid currency.",
+                    details=[{"field": f"items[{idx}].terms.amount_minor", "message": "Reviewed refund commitment requires amount_minor"}]
                 )
 
         # Evidence validation: at least one evidence ID from extraction
@@ -366,6 +372,9 @@ def review_extraction(
                     "VALIDATION_ERROR",
                     "Action 'revision' requires an active supersedes_id."
                 )
+            if item.supersedes_id in seen_predecessors:
+                _api_error(409, "INVALID_REVISION", "A promise may be revised only once per review.")
+            seen_predecessors.add(item.supersedes_id)
             predecessor = db.query(Commitment).filter(
                 Commitment.id == item.supersedes_id,
                 Commitment.case_id == case_id
@@ -407,6 +416,7 @@ def review_extraction(
         created_commitments.append(comm)
 
     # Execute all review state persistence inside an atomic transaction
+    claim_version(db, case, payload.expected_version)
     try:
         for c in created_commitments:
             db.add(c)
@@ -430,7 +440,6 @@ def review_extraction(
         # Close extraction draft
         extraction.status = "reviewed"
         extraction.reviewed_commitment_ids = [c.id for c in created_commitments]
-        case.version += 1
 
         db.commit()
         db.refresh(extraction)

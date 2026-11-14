@@ -6,11 +6,11 @@ import '../../outcome-dialog.css';
 
 export interface OutcomeInput {kind:'full'|'partial'|'pending';note:string;amount:string}
 interface Props {
-  open:boolean; monetary:boolean; outstandingMinor:number|null; allowExtended:boolean;
+  open:boolean; currency?:string; monetary:boolean; outstandingMinor:number|null; allowExtended:boolean;
   busy:boolean; error:string|null; blocked?:boolean; onReload?:()=>void; onClose:()=>void; onSubmit:(input:OutcomeInput)=>void;
 }
 
-export default function OutcomeDialog({open,monetary,outstandingMinor,allowExtended,busy,error,blocked=false,onReload,onClose,onSubmit}:Props) {
+export default function OutcomeDialog({open,currency='INR',monetary,outstandingMinor,allowExtended,busy,error,blocked=false,onReload,onClose,onSubmit}:Props) {
   const dialogRef=useRef<HTMLDialogElement>(null);
   const [input,setInput]=useState<OutcomeInput>({kind:'full',note:'',amount:''});
   const [confirmed,setConfirmed]=useState(false);
@@ -39,7 +39,7 @@ export default function OutcomeDialog({open,monetary,outstandingMinor,allowExten
         const parts=input.amount.trim().match(/^(\d+)(?:\.(\d{1,2}))?$/);
         const minor=parts ? Number(parts[1])*100+Number((parts[2] ?? '').padEnd(2,'0')) : NaN;
         if(!Number.isSafeInteger(minor) || minor<=0)next.amount='Enter a positive INR amount with up to two decimals.';
-        else if(minor>=outstandingMinor!)next.amount=`Enter less than the outstanding ${money(outstandingMinor)}, or choose Received in full.`;
+        else if(minor>=outstandingMinor!)next.amount=`Enter less than the outstanding ${money(outstandingMinor,currency)}, or choose Received in full.`;
       }
     }
     if(input.kind==='pending' && !allowExtended)next.selection='Pending notes are not available on the connected backend.';
@@ -59,7 +59,7 @@ export default function OutcomeDialog({open,monetary,outstandingMinor,allowExten
       <header className="outcome-dialog-header"><div><span className="outcome-dialog-kicker">Your confirmation</span><h2 id={`${baseId}-title`}>What came through?</h2></div><button type="button" className="outcome-close" aria-label="Close record outcome" disabled={busy} onClick={onClose}><X size={21}/></button></header>
       <div className="outcome-dialog-body">
         <p id={`${baseId}-intro`} className="outcome-intro">Record what you actually received. A company saying it sent something doesn’t confirm receipt.</p>
-        {monetary && outstandingMinor!==null && <div className="outcome-outstanding"><span>Still awaiting</span><strong>{money(outstandingMinor)}</strong></div>}
+        {monetary && outstandingMinor!==null && <div className="outcome-outstanding"><span>Still awaiting</span><strong>{money(outstandingMinor,currency)}</strong></div>}
         <fieldset className="outcome-choices" disabled={busy}><legend className="sr-only">Choose the outcome</legend>{choices.map(({kind,Icon,title,description,disabled})=><label key={kind} className={`outcome-choice ${input.kind===kind ? 'is-selected' : ''} ${disabled ? 'is-unavailable' : ''}`}>
           <input type="radio" name={`${baseId}-outcome`} value={kind} checked={input.kind===kind} disabled={disabled} onChange={()=>update({kind})}/><Icon size={21}/><span><strong>{title}</strong><span>{description}</span></span>
         </label>)}</fieldset>
@@ -67,7 +67,7 @@ export default function OutcomeDialog({open,monetary,outstandingMinor,allowExten
         {allowExtended && !monetary && <p className="outcome-help">For a partial outcome, explain what you received and what you’re still waiting for.</p>}
         {errors.selection && <p className="outcome-field-error" role="alert">{errors.selection}</p>}
         <fieldset className="outcome-fields" disabled={busy}>
-          {input.kind==='partial' && monetary && <label className="outcome-label" htmlFor={`${baseId}-amount`}>Amount received (INR)<input id={`${baseId}-amount`} autoComplete="off" inputMode="decimal" type="text" value={input.amount} placeholder="e.g. 1500" aria-invalid={Boolean(errors.amount)} aria-describedby={errors.amount ? `${baseId}-amount-error` : `${baseId}-amount-help`} onChange={event=>update({amount:event.target.value})}/>{errors.amount ? <span id={`${baseId}-amount-error`} className="outcome-field-error" role="alert">{errors.amount}</span> : <span id={`${baseId}-amount-help`} className="outcome-help">The original total and deadline stay on record.</span>}</label>}
+          {input.kind==='partial' && monetary && <label className="outcome-label" htmlFor={`${baseId}-amount`}>Amount received ({currency})<input id={`${baseId}-amount`} autoComplete="off" inputMode="decimal" type="text" value={input.amount} placeholder="e.g. 1500" aria-invalid={Boolean(errors.amount)} aria-describedby={errors.amount ? `${baseId}-amount-error` : `${baseId}-amount-help`} onChange={event=>update({amount:event.target.value})}/>{errors.amount ? <span id={`${baseId}-amount-error`} className="outcome-field-error" role="alert">{errors.amount}</span> : <span id={`${baseId}-amount-help`} className="outcome-help">The original total and deadline stay on record.</span>}</label>}
           <label className="outcome-label" htmlFor={`${baseId}-note`}>{input.kind==='pending' ? 'What’s the latest?' : input.kind==='partial' && !monetary ? 'What was fulfilled, and what remains?' : 'Add a receipt note'}<textarea id={`${baseId}-note`} rows={3} maxLength={2000} value={input.note} placeholder={input.kind==='pending' ? 'What are you still waiting for?' : input.kind==='partial' && !monetary ? 'Describe what arrived and what is still missing.' : 'What did you receive, and when?'} aria-invalid={Boolean(errors.note)} aria-describedby={errors.note ? `${baseId}-note-error` : undefined} onChange={event=>update({note:event.target.value})}/>{errors.note && <span id={`${baseId}-note-error`} className="outcome-field-error" role="alert">{errors.note}</span>}</label>
           <label className="outcome-confirm"><input type="checkbox" checked={confirmed} onChange={event=>{setConfirmed(event.target.checked);setErrors(previous=>({...previous,confirmed:''}));}} aria-describedby={errors.confirmed ? `${baseId}-confirm-error` : undefined}/><span>{input.kind==='pending' ? 'I understand this records a note and keeps the case open.' : input.kind==='partial' ? monetary ? 'I confirm I actually received this amount.' : 'I confirm the partial fulfilment described above.' : 'I confirm every active promise in this case has been fulfilled.'}</span></label>
           {errors.confirmed && <p id={`${baseId}-confirm-error`} className="outcome-field-error" role="alert">{errors.confirmed}</p>}

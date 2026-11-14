@@ -25,8 +25,13 @@ def real_ocr(source_root, monkeypatch):
     pytest.importorskip('onnxruntime', reason='PENDING: ONNX runtime unavailable')
     pytest.importorskip('numpy', reason='PENDING: numpy unavailable')
     module = pytest.importorskip('rapidocr', reason='PENDING: RapidOCR unavailable')
+    import backend.app.ai.document_processor as processor
     try:
-        engine = module.RapidOCR()
+        processor.get_ocr_engine.cache_clear()
+        engine = processor.get_ocr_engine()
+        engine._load_det_model()
+        engine._load_cls_model()
+        engine._load_rec_model()
     except Exception as exc:
         pytest.skip(f'PENDING: RapidOCR runtime/model assets unavailable offline ({type(exc).__name__}); install/cache assets before running')
     calls = []
@@ -35,7 +40,7 @@ def real_ocr(source_root, monkeypatch):
             output = engine(*args, **kw)  # Real inference; no fake OCR output.
             calls.append(output)
             return output
-    monkeypatch.setattr(module, 'RapidOCR', lambda *a, **kw: ObservedOCR())
+    monkeypatch.setattr(processor, 'get_ocr_engine', lambda: ObservedOCR())
     return calls
 
 

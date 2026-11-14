@@ -1,3 +1,5 @@
+> Historical branch handover. The combined release supersedes session, route, OCR and acceptance-status notes below. See the [current release audit](../docs/RELEASE_AUDIT.md).
+
 # Bindr — remaining integration gaps
 
 Updated 14 Nov 2026. Shared contract v1 from feature/integration: its current text matches the local reference docs after ignoring final newline differences. No backend routes or request fields were invented. Phases 1–6 are implemented; Phase 7's frontend pass is complete, with real backend verification outstanding.
