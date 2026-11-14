@@ -50,7 +50,7 @@ jobs:
           server_pid=$!
           trap 'kill "$server_pid"' EXIT
           for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8000/healthz; then break; fi
+            if curl -fsS http://127.0.0.1:8000/health; then break; fi
             sleep 1
           done
           cd frontend

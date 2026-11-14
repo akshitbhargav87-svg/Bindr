@@ -2,7 +2,7 @@
 
 **Cloud Run** hosts the connected frontend/API. **Cloud SQL PostgreSQL** stores records. **Private Cloud Storage** keeps original evidence. **Secret Manager** holds credentials. The existing Meta API provider stays in place; this does not switch AI to Gemini or Vertex AI.
 
-This prepares a fresh judging deployment, without importing data from Render or SQLite. No Google resources have been provisioned or verified yet. The supplied Console screenshot identifies **My First Project**, ID `project-0021b03b-28bd-43e6-9d4`; the commands below use that project.
+The judging deployment is live at https://bindr-404714938412.asia-south1.run.app. See [live acceptance results](LIVE_ACCEPTANCE.md). The one-time setup below is for recreating the deployment; for the existing resources use the update instructions. No data was imported from Render or SQLite. The supplied Console screenshot identifies **My First Project**, ID `project-0021b03b-28bd-43e6-9d4`; the commands below use that project.
 
 ## 1. Select the project and billing
 
@@ -109,7 +109,7 @@ Confirm the real model and endpoint in your existing provider account. The inher
 bash scripts/deploy-google-cloud.sh "$PROJECT_ID" "$REGION"
 ```
 
-The script builds Docker in Cloud Build, including the connected frontend and OCR weights, pushes to Artifact Registry and deploys Run. No local Docker installation is needed. Wait for the `/healthz` startup probe and record the printed HTTPS URL. Git pushes do not automatically publish revisions.
+The script builds Docker in Cloud Build, including the connected frontend and OCR weights, pushes to Artifact Registry and deploys Run. Use `/health` for the public database health check: Google reserves some paths ending in `z`, including `/healthz` on this deployment. See [reserved URL paths](https://docs.cloud.google.com/run/docs/known-issues#reserved-url-paths). No local Docker installation is needed. Wait for the `/health` startup probe and record the printed HTTPS URL. Git pushes do not automatically publish revisions.
 
 Run is publicly reachable so visitors can start a browser workspace. Cases and originals still require signed cookies and ownership checks. Original bytes travel through the authorized API, without public object URLs or a local cache. SQL and GCS are the sources of record; local container files are disposable.
 
@@ -117,7 +117,7 @@ Secret references are pinned to **version 1**. For rotation, add a version and c
 
 ## 5. Check the actual deployment
 
-1. Open the HTTPS homepage and `/healthz`; directly refresh `/app/cases`.
+1. Open the HTTPS homepage and `/health`; directly refresh `/app/cases`.
 2. Paste a synthetic refund message, extract, inspect the exact quote, confirm the terms and reload.
 3. Upload a readable PNG/JPEG and verify OCR plus the real provider. Review uncertain dates.
 4. Add/confirm a revision, inspect both versions, copy a complaint and resolve the case.

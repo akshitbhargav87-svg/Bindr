@@ -2,9 +2,11 @@
 
 **A promise. A deadline. A clear record.**
 
+**[Open the live app](https://bindr-404714938412.asia-south1.run.app)**
+
 Companies promise refunds, replacements and service fixes across messages and documents. When dates change, the proof gets scattered. Bindr keeps the original evidence, confirmed terms, revisions and outcome in one place.
 
-> Hackathon release: the combined workflow has been tested locally. Google Cloud is the deployment target; live deployment and a real Meta provider call still need verification. See [migration status](docs/GOOGLE_CLOUD_MIGRATION.md) and [release audit](docs/RELEASE_AUDIT.md).
+> Live on Google Cloud. The deployed API lifecycle, real Meta extraction, screenshot OCR, private original downloads and workspace isolation have passed with synthetic evidence. See [live acceptance](docs/LIVE_ACCEPTANCE.md) for the exact checks and remaining redeploy-persistence gate.
 
 ## Try the story
 
@@ -58,7 +60,7 @@ Open **http://127.0.0.1:8000**. Local mode uses SQLite and a clearly labelled of
 
 ## Deploy
 
-Follow the [Google Cloud deployment guide](docs/DEPLOYMENT.md): Cloud Run serves the app, Cloud SQL stores records, Cloud Storage keeps private originals and Secret Manager holds credentials. The [deploy script](scripts/deploy-google-cloud.sh) builds and publishes Docker after one-time project setup. The existing AI provider is unchanged. A public URL will be added after live acceptance passes.
+Follow the [Google Cloud deployment guide](docs/DEPLOYMENT.md): Cloud Run serves the app, Cloud SQL stores records, Cloud Storage keeps private originals and Secret Manager holds credentials. The [deploy script](scripts/deploy-google-cloud.sh) builds and publishes Docker after one-time project setup. The existing AI provider is unchanged. The live judging URL is linked above; deployment remains manual.
 
 ## Scope and limits
 
