@@ -1,4 +1,4 @@
-import { useEffect,useState,type FormEvent } from 'react';
+import { useEffect,useRef,useState,type FormEvent } from 'react';
 import { Link,Navigate,useLocation,useNavigate,useSearchParams } from 'react-router-dom';
 import { ArrowLeft,ArrowRight,Check,CheckCircle2,Eye,EyeOff,FileCheck2,KeyRound,LoaderCircle,LockKeyhole,Mail,ShieldCheck } from 'lucide-react';
 import { applyActionCode,confirmPasswordReset,createUserWithEmailAndPassword,getMultiFactorResolver,GoogleAuthProvider,reload,sendEmailVerification,sendPasswordResetEmail,signInWithEmailAndPassword,signInWithPopup,signOut,TotpMultiFactorGenerator,updateProfile,validatePassword,verifyPasswordResetCode,type MultiFactorError,type MultiFactorResolver,type User } from '@firebase/auth';
@@ -17,9 +17,20 @@ export default function AuthPage(){
   const [resetReady,setResetReady]=useState(false),[actionDone,setActionDone]=useState(false),[clientReady,setClientReady]=useState(false);
   useEffect(()=>{if(!account.config?.configured)return;let active=true;void firebaseAuth(account.config).then(()=>{if(active)setClientReady(true);}).catch(cause=>{if(active)setError(authMessage(cause));});return()=>{active=false;};},[account.config]);
   useEffect(()=>{setError('');setNotice(params.has('securityUpdated') ? 'Your security settings changed. Sign in again to continue.' : '');setPassword('');setConfirm('');setResolver(null);setPendingUser(null);},[location.pathname]);
-  useEffect(()=>{if(!isAction || !account.config?.configured)return;let active=true;(async()=>{setBusy(true);try{const auth=await firebaseAuth(account.config!),oob=params.get('oobCode') ?? '';if(params.get('mode')==='verifyEmail'){await applyActionCode(auth,oob);if(active){setActionDone(true);setNotice('Your email is verified. You can now sign in.');}}else if(params.get('mode')==='resetPassword'){const address=await verifyPasswordResetCode(auth,oob);if(active){setEmail(address);setResetReady(true);}}else throw new Error('This account link is not supported. Request a new email.');}catch(cause){if(active)setError(authMessage(cause));}finally{if(active)setBusy(false);}})();return()=>{active=false;};},[isAction,account.config,params]);
-  async function finish(user:User){if(!user.emailVerified){setPendingUser(user);setEmail(user.email ?? email);setNotice('Check your inbox for a verification link. Verify your email before opening your records.');return;}await account.complete(user);setPassword('');navigate(target,{replace:true});}
-  async function attempt(action:()=>Promise<void>){if(busy)return;setBusy(true);setError('');setNotice('');try{await action();}catch(cause){if((cause as {code?:string}).code==='auth/multi-factor-auth-required' && account.config){const auth=await firebaseAuth(account.config),r=getMultiFactorResolver(auth,cause as MultiFactorError);const hints=r.hints.filter(h=>h.factorId===TotpMultiFactorGenerator.FACTOR_ID);if(!hints.length){setError('This account requires an unsupported second factor. Contact the project owner.');}else{setResolver(r);setFactor(hints[0].uid);setPassword('');setCode('');}}else setError(authMessage(cause));}finally{setBusy(false);}}
+  const actionOperation=useRef<{key:string;promise:Promise<{kind:'verified'|'reset';email?:string}>}|null>(null);
+  useEffect(()=>{
+    if(!isAction || !account.config?.configured)return;
+    let active=true;const oob=params.get('oobCode') ?? '',mode=params.get('mode'),key=`${mode}:${oob}`;
+    if(actionOperation.current?.key!==key){
+      const promise=(async()=>{const auth=await firebaseAuth(account.config!);if(mode==='verifyEmail'){await applyActionCode(auth,oob);return {kind:'verified' as const};}if(mode==='resetPassword')return {kind:'reset' as const,email:await verifyPasswordResetCode(auth,oob)};throw new Error('This account link is not supported. Request a new email.');})();
+      actionOperation.current={key,promise};
+    }
+    setBusy(true);setResetReady(false);setActionDone(false);
+    void actionOperation.current.promise.then(result=>{if(!active)return;if(result.kind==='verified'){setActionDone(true);setNotice('Your email is verified. You can now sign in.');}else{setEmail(result.email!);setResetReady(true);}}).catch(cause=>{if(active)setError(authMessage(cause));}).finally(()=>{if(active)setBusy(false);});
+    return()=>{active=false;};
+  },[isAction,account.config,params]);
+  async function finish(user:User){setPassword('');setConfirm('');if(!user.emailVerified){setPendingUser(user);setEmail(user.email ?? email);setNotice('Check your inbox for a verification link. Verify your email before opening your records.');return;}await account.complete(user);setPassword('');navigate(target,{replace:true});}
+  async function attempt(action:()=>Promise<void>){if(busy)return;setBusy(true);setError('');setNotice('');try{await action();}catch(cause){if((cause as {code?:string}).code==='auth/multi-factor-auth-required' && account.config){const auth=await firebaseAuth(account.config),r=getMultiFactorResolver(auth,cause as MultiFactorError);const hints=r.hints.filter(h=>h.factorId===TotpMultiFactorGenerator.FACTOR_ID);if(!hints.length){setError('This account requires an unsupported second factor. Contact the project owner.');}else{setResolver(r);setFactor(hints[0].uid);setPassword('');setCode('');}}else{if((cause as {code?:string}).code==='RECENT_LOGIN_REQUIRED'){setPendingUser(null);setResolver(null);}setError(authMessage(cause));}}finally{setBusy(false);}}
   async function submit(event:FormEvent){event.preventDefault();await attempt(async()=>{
     if(!account.config)throw new Error('Sign-in is still loading. Please try again.');const auth=await firebaseAuth(account.config);
     if(resolver){await finish((await resolver.resolveSignIn(TotpMultiFactorGenerator.assertionForSignIn(factor,code))).user);return;}

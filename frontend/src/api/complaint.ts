@@ -48,6 +48,7 @@ export function manualComplaint(view:CaseView,selection:ComplaintSelection) {
   validateResponse(draft,view);return draft;
 }
 export async function prepareComplaintExport(session:ComplaintSession) {
+  if(session.needsRefresh)throw new Error('Review the latest case facts before exporting this saved wording.');
   if(!session.snapshot || !session.exportConfirmed)throw new Error('Confirm that you reviewed the final wording and export contents.');
   await assertComplaintCurrent(session.snapshot);
   const {buildExportText}=await import('./complaint-document');return buildExportText(session);

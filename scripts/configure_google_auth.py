@@ -12,6 +12,30 @@ import shlex
 import subprocess
 import urllib.request
 import urllib.error
+from copy import deepcopy
+
+
+def identity_options(current, google, domains):
+    """Validate security prerequisites before making any project changes."""
+    sign_in = current.get("signIn", {})
+    email = sign_in.get("email", {})
+    if not email.get("enabled") or not email.get("passwordRequired") or not google.get("enabled"):
+        raise SystemExit("Enable Email/Password (password required) and Google in Authentication > Sign-in method, then rerun.")
+    if sign_in.get("allowDuplicateEmails") or sign_in.get("anonymous", {}).get("enabled"):
+        raise SystemExit("Use one account per email and disable anonymous sign-in before continuing.")
+    policy = current.get("passwordPolicyConfig", {})
+    versions = policy.get("passwordPolicyVersions", [])
+    strength = versions[0].get("customStrengthOptions", {}) if len(versions) == 1 else {}
+    if policy.get("passwordPolicyEnforcementState") != "ENFORCE" or strength.get("minPasswordLength", 0) < 12:
+        raise SystemExit("Set Authentication > Settings > Password policy to Require with at least 12 characters, then rerun.")
+    mfa = deepcopy(current.get("mfa", {}))
+    prior = next((p for p in mfa.get("providerConfigs", []) if "totpProviderConfig" in p), {})
+    providers = [p for p in mfa.get("providerConfigs", []) if "totpProviderConfig" not in p]
+    providers.append({"state": "MANDATORY" if prior.get("state") == "MANDATORY" else "ENABLED",
+                      "totpProviderConfig": {"adjacentIntervals": min(prior.get("totpProviderConfig", {}).get("adjacentIntervals", 1), 1)}})
+    mfa.update({"state": "MANDATORY" if mfa.get("state") == "MANDATORY" else "ENABLED", "providerConfigs": providers})
+    return {"mfa": mfa, "authorizedDomains": sorted(set(current.get("authorizedDomains", [])) | set(domains)),
+            "emailPrivacyConfig": {"enableImprovedEmailPrivacy": True}}
 
 
 def gcloud(*args, allow_missing=False):
@@ -45,21 +69,18 @@ def main():
     base = f"https://identitytoolkit.googleapis.com/admin/v2/projects/{args.project}"
     current = api(base + "/config")
     google = api(base + "/defaultSupportedIdpConfigs/google.com")
-    if not current.get("signIn", {}).get("email", {}).get("enabled") or not google.get("enabled"):
-        raise SystemExit("Enable Email/Password and Google in Authentication > Sign-in method, then rerun.")
+    identity_options(current, google, [])  # Stop before any mutation if setup is incomplete.
     web = api(f"https://firebase.googleapis.com/v1beta1/projects/{args.project}/webApps/{args.web_app_id}/config")
     if web.get("projectId") != args.project or not all(web.get(k) for k in ("apiKey", "authDomain", "appId")):
         raise SystemExit("The selected Firebase web app did not return complete configuration for this project.")
     service_url = gcloud("run", "services", "describe", "bindr", "--project=" + args.project, "--region=" + args.region, "--format=value(status.url)")
     number = gcloud("projects", "describe", args.project, "--format=value(projectNumber)")
     from urllib.parse import urlparse
-    domains = sorted(set(current.get("authorizedDomains", [])) | {urlparse(service_url).hostname, f"bindr-{number}.{args.region}.run.app"})
-    mfa = current.get("mfa", {})
-    providers = mfa.get("providerConfigs", [])
-    providers = [p for p in providers if "totpProviderConfig" not in p]
-    providers.append({"state": "ENABLED", "totpProviderConfig": {"adjacentIntervals": 1}})
-    mfa.update({"state": "ENABLED", "providerConfigs": providers})
-    api(base + "/config?updateMask=mfa,authorizedDomains,emailPrivacyConfig", {"mfa": mfa, "authorizedDomains": domains, "emailPrivacyConfig": {"enableImprovedEmailPrivacy": True}}, "PATCH")
+    host = urlparse(service_url).hostname
+    if not host or not host.endswith(".run.app"):
+        raise SystemExit("Could not find the existing Bindr Cloud Run hostname.")
+    options = identity_options(current, google, [host, f"bindr-{number}.{args.region}.run.app"])
+    api(base + "/config?updateMask=mfa,authorizedDomains,emailPrivacyConfig", options, "PATCH")
     # Only the two permissions used by token revocation/account lookup. No auth-admin role.
     role_name = "BindrIdentityRuntime"
     exists = gcloud("iam", "roles", "describe", role_name, "--project=" + args.project, "--format=value(name)", allow_missing=True)

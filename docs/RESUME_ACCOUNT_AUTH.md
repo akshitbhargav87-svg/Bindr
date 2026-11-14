@@ -1,39 +1,25 @@
-# Resume account authentication work
+# Account authentication handoff — 15 November 2026
 
-User requested an immediate save on 15 November 2026 (IST) because of time/usage limits. Stop implementation and resume from this note.
+## Current branch and implementation
 
-## Workspace
+Repository: bindr-google-cloud. Branch: codex/account-auth, originally based on main 893b804. Initial save was 0f79fb9. The resumed review fixed cross-tab account/session races, automatic restoration of saved cloud wording, stale facts before export, one-time email-action handling in React StrictMode, fresh identity for MFA changes, and configuration preflight safeguards.
 
-Repository: bindr-google-cloud, branch codex/account-auth, based on main 893b804. The sibling bindr-app checkout has not been modified.
+Managed Google/Firebase sign-in, verified email/password, reset links, optional authenticator MFA, revocable SQL sessions, cloud preferences/drafts and one-time legacy-workspace attachment are implemented. Details and the exact owner setup are in AUTHENTICATION.md. The sibling bindr-app checkout is untouched.
 
-## Implemented
+## Validation
 
-- Managed Firebase/Google Identity Platform integration: Google and email/password registration/sign-in, verified email, reset links, optional managed TOTP MFA in Settings, backup authenticator enrollment, Google linking.
-- Stable SQL account IDs; opaque random HttpOnly/Secure/host-only cookies; only token hashes stored; revocable per-device sessions and sign-out-all. Server checks Google identity/revocation/enrollment state. No local passwords or MFA secrets.
-- Production requires Firebase configuration and rejects anonymous development mode. Legacy cookies cannot log into production. One-time explicit attachment preserves old browser cases and files.
-- Cloud-backed preferences/read markers and saved complaint wording with ownership/version checks. Account transitions clear frontend state.
-- Bindr-styled responsive login/register/forgot-password/email-action pages. Auth SDK/UI are loaded in separate chunks.
-- Owner setup script scripts/configure_google_auth.py, public config example deploy/account-auth.env.example, updated deploy script and docs/AUTHENTICATION.md.
+- Full backend/AI suite: 169 passed (plus 3 subtests), six existing deprecation warnings.
+- Frontend: 69 checks passed, including component lifecycle tests; connected production build passed.
+- Preserved integration regressions: 28 passed in the final resumed run.
+- Python pip check and deployment/start shell syntax passed.
+- Earlier desktop/mobile screenshots: storage/account-ui/login-desktop.jpg and register-mobile.jpg. Local preview used fake Firebase identifiers; it did not verify live Google login.
 
-## Validation already observed
+## Owner gate
 
-- Full backend/AI suite: 157 passed (before adding the final two account tests). The final account subset has 24 passes, including two added boundary tests.
-- Frontend: 63 checks passed; connected TypeScript/Vite production build passed. Last build has separate Auth/Settings/Firebase chunks.
-- pip check passed. npm audit after switching to only @firebase/app 0.14.9 and @firebase/auth 1.12.1 reported zero vulnerabilities. Node 22 compatible.
-- Deployment/start shell syntax passed via escalated Git Bash; configure_google_auth.py compiled.
-- Preserved integration regressions: 28 passed.
-- Browser checked desktop login, mobile registration/recovery, protected-route return redirect and password visibility. Screenshots: storage/account-ui/login-desktop.jpg and register-mobile.jpg (ignored by Git). Local UI preview uses deliberately fake Firebase identifiers, not real authentication. CUA completion summary has been submitted; no browser handoff pending.
+Akshit owns project project-0021b03b-28bd-43e6-9d4. Tushar does not have access. Akshit must add Firebase/Identity Platform to that same project, enable Google and Email/Password, enforce the password policy, run the setup script and deploy. Do not request private keys or his password. Do not claim the account system is live until real-provider acceptance in AUTHENTICATION.md is complete.
 
-## Actual blocker / owner responsibility
+The old live anonymous MVP has not been changed. No cloud resources have been changed in this chat. Deployment of this branch refuses incomplete identity settings and rejects anonymous production mode. Keep existing AUTH_SECRET, database and evidence bucket to preserve old records.
 
-Akshit owns project project-0021b03b-28bd-43e6-9d4. Tushar does not have project access; this was confirmed in Firebase console. User asked whether he should install Firebase plugin; answered no need in his account. Akshit must configure the existing project, Identity Platform, Google/email providers, password policy, email templates and TOTP, then deploy. No credentials should be shared. The current live service has not been changed. No real Google login/email delivery/TOTP enrollment was claimed verified.
+## Next actions
 
-## Resume next
-
-1. Inspect git status/log and the test logs; preserve this saved implementation.
-2. Finish code review, especially frontend cloud-state/error handling and provider/MFA lifecycle; rerun only checks justified by further edits. The last small change added provider_uid to /auth/me and checks SDK user matches account before security actions.
-3. Final results are 24 account tests and 28 preserved regressions passing; the prior complete native suite had 157 passes before two extra account tests. Do not claim a fresh complete 159-test run unless it is actually rerun.
-4. Update validation documentation, push codex/account-auth and open a reviewable PR (if not already pushed during save). No PR/merge/deploy has yet occurred. Check remote state before acting.
-5. Give Akshit docs/AUTHENTICATION.md; actual live acceptance is still required. Do not call this fully secure or live based only on stubbed-provider tests.
-
-The loopback preview on port 8026 used fake Firebase configuration and was stopped for the save. It can be restarted using development AUTH_PROVIDER=firebase and preview-only identifiers, or stopped when no longer needed.
+Inspect remote PR status for codex/account-auth and current CI before further Git actions. Complete any CI fixes, then hand the owner the setup guide. Actual OAuth consent/email/TOTP/cross-device acceptance remains pending on his project. No account feature should be merged/deployed without checking these prerequisites.

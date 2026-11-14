@@ -117,6 +117,8 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
     check_origin(request)
     raw = request.cookies.get(cookie_name("session"), "")
     row = db.query(AccountSession).filter(AccountSession.token_hash == hashlib.sha256(raw.encode()).hexdigest()).first() if raw else None
+    if row and request.headers.get("X-Bindr-Account") != row.account_id:
+        fail(401, "ACCOUNT_CHANGED", "The account changed in another tab. Reopen your workspace.")
     if row and not hmac.compare_digest(request.headers.get("X-CSRF-Token", ""), generate_csrf_token(row.id)):
         fail(403, "CSRF_FAILED", "Refresh Bindr before signing out.")
     if row:

@@ -62,6 +62,11 @@ def current_account_session(request, db):
     account = db.get(Account, row.account_id)
     if not account:
         fail(401, "UNAUTHENTICATED", "Sign in again to continue.")
+    expected_account = request.headers.get("X-Bindr-Account")
+    if expected_account and expected_account != account.id:
+        fail(401, "ACCOUNT_CHANGED", "The account changed in another tab. Reopen your workspace.")
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and expected_account != account.id:
+        fail(403, "ACCOUNT_REQUIRED", "Refresh your account before trying again.")
     user = provider_call("user", account.provider_uid)
     check_user(user, row.auth_time, row.factor_version)
     csrf = generate_csrf_token(row.id)

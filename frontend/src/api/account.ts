@@ -1,4 +1,5 @@
 import type { Auth } from '@firebase/auth';
+import { accountContext,accountHeaders,assertAccountContext,sessionEnded } from './account-context';
 export interface Account {id:string;email:string;display_name:string;provider_uid:string}
 export interface AccountInfo {account:Account;csrf_token:string;mfa_enabled:boolean;legacy_case_count:number;expires_at:number}
 export interface AuthConfig {provider:string;configured:boolean;firebase:{apiKey:string;authDomain:string;projectId:string;appId:string}|null}
@@ -6,9 +7,11 @@ const root=(import.meta.env.VITE_API_URL || '/api/v1').replace(/\/+$/,'');
 export const apiBase=root.endsWith('/api/v1') ? root : `${root}/api/v1`;
 export function accountCsrf(){const cookies=document.cookie.split(/;\s*/);return (cookies.find(s=>s.startsWith('__Host-bindr_csrf=')) ?? cookies.find(s=>s.startsWith('bindr_csrf=')))?.split('=').slice(1).join('=') ?? '';}
 export async function accountRequest<T>(path:string,body?:object,method=body ? 'POST' : 'GET',extra:Record<string,string>={}):Promise<T> {
-  const response=await fetch(`${apiBase}/auth${path}`,{method,credentials:'include',cache:'no-store',headers:{...(body ? {'Content-Type':'application/json','X-CSRF-Token':accountCsrf()} : {}),...extra},body:body ? JSON.stringify(body) : undefined});
+  const context=accountContext();
+  const response=await fetch(`${apiBase}/auth${path}`,{method,credentials:'include',cache:'no-store',headers:{...(path==='/me' ? {} : accountHeaders()),...(body ? {'Content-Type':'application/json','X-CSRF-Token':accountCsrf()} : {}),...extra},body:body ? JSON.stringify(body) : undefined});
   let data;try{data=await response.json();}catch{throw new Error('The server could not complete this request. Please try again.');}
-  if(!response.ok)throw Object.assign(new Error(data?.error?.message || 'The request could not finish. Please try again.'),{code:data?.error?.code,status:response.status});
+  assertAccountContext(context);
+  if(!response.ok){if(response.status===401 && !['/login','/me'].includes(path))sessionEnded();throw Object.assign(new Error(data?.error?.message || 'The request could not finish. Please try again.'),{code:data?.error?.code,status:response.status});}
   return data as T;
 }
 let authReady:Promise<Auth>|null=null;

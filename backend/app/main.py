@@ -146,7 +146,7 @@ app.include_router(api_router, prefix="/api")
 async def private_response_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     # OAuth popup sign-in needs its opener; do not set COOP=same-origin.

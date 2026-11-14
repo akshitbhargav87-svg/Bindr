@@ -64,6 +64,7 @@ def login(client, token):
     response = client.post("/api/v1/auth/login", json={"id_token": token}, headers={"X-CSRF-Token": nonce})
     if response.status_code == 200:
         client.headers["X-CSRF-Token"] = response.json()["csrf_token"]
+        client.headers["X-Bindr-Account"] = response.json()["account"]["id"]
     return response
 
 
@@ -222,6 +223,28 @@ def test_bad_token_and_caller_selected_identity_cannot_create_an_account_session
     nonce = client.get("/api/v1/auth/csrf").json()["csrf_token"]
     assert client.post("/api/v1/auth/login", json={"id_token": provider.add(), "user_id": "someone-else"}, headers={"X-CSRF-Token": nonce}).status_code == 422
     assert db.query(AccountSession).count() == 0
+
+
+def test_stale_tab_cannot_read_or_write_another_accounts_cookie(accounts):
+    client, provider, db = accounts
+    login(client, provider.add())
+    old_account = client.headers["X-Bindr-Account"]
+    login(client, provider.add("person-b"))
+    client.headers["X-Bindr-Account"] = old_account
+    assert client.get("/api/v1/cases").status_code == 401
+    assert client.post("/api/v1/cases", json={"title": "Stale form", "merchant_name": "Shop"}).status_code == 401
+    assert client.put("/api/v1/auth/preferences", json={"expected_version": 0, "deadline_prompts": False, "case_updates": True, "read_ids": []}).status_code == 401
+    assert client.post("/api/v1/auth/logout", json={}).status_code == 401
+    assert db.query(Case).count() == 0
+    # /me is the safe refresh path for discovering the newly signed-in account.
+    assert client.get("/api/v1/auth/me", headers={"X-Bindr-Account": ""}).status_code == 200
+
+
+def test_account_write_requires_an_explicit_tab_identity(accounts):
+    client, provider, _ = accounts
+    login(client, provider.add())
+    del client.headers["X-Bindr-Account"]
+    assert client.post("/api/v1/cases", json={"title": "Missing context", "merchant_name": "Shop"}).status_code == 403
 
 
 def test_google_sdk_receives_project_app_and_revocation_check(monkeypatch):
