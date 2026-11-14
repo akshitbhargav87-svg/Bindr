@@ -1,13 +1,13 @@
 /* Consumer direction approved after Phase 1. Scoped to marketing; app tokens stay intact. */
 .landing {
-  --display: 'Nunito', 'Inter', sans-serif;
-  --type-meta: 14px;
-  --type-body: 16px;
+  --display: var(--font-display);
+  --type-meta: var(--text-ui-meta);
+  --type-body: var(--text-ui-body);
   --type-lead: 18px;
   --type-title: 24px;
-  --muted: #56657c;
-  --lilac: #eff0ff;
-  --lilac-line: #d9dcf9;
+  --muted: var(--color-muted);
+  --lilac: var(--color-lilac);
+  --lilac-line: var(--color-lilac-line);
   --mint: #eaf7ef;
   overflow: clip;
 }

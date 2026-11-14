@@ -1,5 +1,9 @@
 # Bindr frontend
 
+Phase 2 is now implemented: `/app` opens the introduction/overview and `/app/cases` opens searchable, filterable cases. Choose **Explore sample cases** on first visit, or use the **Demo workspace** menu to review empty/offline/error states. The app uses the same Nunito/Inter typography and foundation tokens as the revised landing. See PHASE-2-HANDOVER.md for routes, validation and remaining scope. Existing Phase 1 notes below are historical where superseded.
+
+Optional focused logic checks: `node --test checks/workspace.test.mjs`.
+
 The landing page has been revised to the approved consumer SVG direction: rounded self-hosted Nunito headings, larger body/product text, source-linked message artwork, licensed illustrative photography, labelled company examples and reduced-motion-aware animations. See LANDING-REVISION-HANDOVER.md for current validation and ASSETS.md for provenance. The earlier Phase 1 handover below is historical; app workflows still arrive in subsequent phases.
 
 Phase 1: React + Vite + TypeScript + Tailwind CSS. Inter and IBM Plex Mono are served locally through @fontsource. Lucide supplies interface icons. React Router owns public `/` and reserved `/app/*` routes.

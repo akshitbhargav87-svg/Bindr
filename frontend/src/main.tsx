@@ -10,4 +10,5 @@ import '@fontsource/nunito/900.css';
 import App from './App';
 import './styles.css';
 import './landing.css';
+import './workspace.css';
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><BrowserRouter><App /></BrowserRouter></React.StrictMode>);

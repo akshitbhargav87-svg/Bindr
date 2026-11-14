@@ -16,7 +16,13 @@
   --color-undated: #6941C6;
   --color-undated-bg: #F4F0FF;
   --font-sans: 'Inter', sans-serif;
+  --font-display: 'Nunito', 'Inter', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
+  --color-lilac: #EFF0FF;
+  --color-lilac-line: #D9DCF9;
+  --color-muted: #56657C;
+  --text-ui-body: 16px;
+  --text-ui-meta: 14px;
   --radius-control: 6px;
   --radius-panel: 8px;
 }
@@ -35,26 +41,26 @@ button, a, input, textarea, select, summary {outline-offset: 4px;}
 :focus-visible {outline: 2px solid var(--color-indigo);}
 ::selection {background: #e5e7fd; color: var(--color-ink);}
 h1, h2, h3, p {margin: 0;}
-h1, h2, h3 {font-weight: 600;}
+h1, h2, h3 {font-family: var(--font-display); font-weight: 800;}
 svg {flex-shrink: 0;}
 .container {width: min(1160px, calc(100% - 64px)); margin-inline: auto;}
 .mono {font-family: var(--font-mono);}
 .eyebrow {font-size: 10px; line-height: 18px; font-weight: 500; letter-spacing: .12em; display: inline-flex; align-items: center; gap: 10px;}
-.button {display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; padding: 11px 18px; font-size: 14px; line-height: 20px; font-weight: 500; border-radius: var(--radius-control); border: 1px solid transparent; transition: background .16s, border-color .16s;}
+.button {display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 48px; padding: 11px 18px; font-size: var(--text-ui-body); line-height: 24px; font-weight: 500; border-radius: 8px; border: 1px solid transparent; transition: background .16s, border-color .16s;}
 .button-primary {color: var(--color-paper); background: var(--color-indigo);}
 .button-primary:hover {background: #303eae;}
 .button-secondary {border-color: var(--color-line); background: var(--color-paper);}
 .button-secondary:hover {border-color: var(--color-indigo); background: var(--color-canvas);}
 .button-text {padding: 8px;}
 .input {min-height: 44px; border: 1px solid var(--color-line); padding: 10px 12px; border-radius: var(--radius-control); background: var(--color-paper);}
-.status {display: inline-flex; align-items: center; gap: 5px; min-height: 24px; padding: 3px 8px; font-size: 12px; line-height: 18px; font-weight: 500; border-radius: 4px; white-space: nowrap;}
+.status {display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 3px 8px; font-size: var(--text-ui-meta); line-height: 22px; font-weight: 500; border-radius: 4px; white-space: nowrap;}
 .status-overdue {color: var(--color-overdue); background: var(--color-overdue-bg);}
 .status-due-today {color: var(--color-today); background: var(--color-today-bg);}
 .status-active {color: var(--color-active); background: var(--color-active-bg);}
 .status-resolved {color: var(--color-resolved); background: var(--color-resolved-bg);}
 .status-needs-a-date {color: var(--color-undated); background: var(--color-undated-bg);}
 .alert {display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--color-line); background: var(--color-canvas); border-radius: 6px; font-size: 14px;}
-.brand {display: inline-flex; align-items: center; gap: 8px; font-size: 29px; line-height: 36px; letter-spacing: -1.6px; font-weight: 600;}
+.brand {display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 32px; line-height: 36px; letter-spacing: -1.5px; font-weight: 800;}
 .brand img {object-fit: contain;}
 .brand-period {color: var(--color-indigo);}
 .quiet-link {display: inline-flex; gap: 16px; align-items: center; min-height: 44px; font-size: 14px; font-weight: 500; padding: 0;}
