@@ -25,3 +25,4 @@ class Case(Base):
     commitments = relationship("Commitment", back_populates="case", cascade="all, delete-orphan")
     evidence = relationship("Evidence", back_populates="case", cascade="all, delete-orphan")
     timeline_events = relationship("TimelineEvent", back_populates="case", cascade="all, delete-orphan")
+    extractions = relationship("Extraction", back_populates="case", cascade="all, delete-orphan")

@@ -98,6 +98,72 @@ class ExtractionSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ExtractionCreateRequest(BaseModel):
+    evidence_ids: List[str] = Field(..., min_length=1, max_length=10)
+    expected_version: Optional[int] = None
+
+
+class ReviewItemTerms(BaseModel):
+    kind: str = Field(..., description="kind: refund, replacement, service, other")
+    description: str = Field(..., min_length=1, max_length=2000)
+    amount_minor: Optional[int] = None
+    currency: Optional[str] = None
+    due_at: Optional[str] = None
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v: str) -> str:
+        if v not in {"refund", "replacement", "service", "other"}:
+            raise ValueError("kind must be one of: refund, replacement, service, other")
+        return v
+
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and len(v.strip()) != 3:
+            raise ValueError("currency must be a 3-letter ISO code or null")
+        return v.upper() if v else None
+
+
+class ReviewItem(BaseModel):
+    candidate_id: str = Field(..., min_length=1)
+    action: str = Field(..., description="'new' or 'revision'")
+    supersedes_id: Optional[str] = None
+    terms: ReviewItemTerms
+    evidence_ids: List[str] = Field(..., min_length=1, max_length=10)
+
+    @field_validator("action")
+    @classmethod
+    def validate_action(cls, v: str) -> str:
+        if v not in {"new", "revision"}:
+            raise ValueError("action must be 'new' or 'revision'")
+        return v
+
+
+class ExtractionReviewRequest(BaseModel):
+    expected_version: Optional[int] = None
+    decision: str = Field(..., description="'approve' or 'reject'")
+    items: List[ReviewItem] = []
+
+    @field_validator("decision")
+    @classmethod
+    def validate_decision(cls, v: str) -> str:
+        if v not in {"approve", "reject"}:
+            raise ValueError("decision must be 'approve' or 'reject'")
+        return v
+
+
+class ExtractionCreateResponse(BaseModel):
+    extraction: ExtractionSchema
+    case_version: int
+
+
+class ExtractionReviewResponse(BaseModel):
+    extraction: ExtractionSchema
+    commitments: List[CommitmentSchema] = []
+    case_version: int
+
+
 class CaseDetailResponse(BaseModel):
     case: CaseSchema
     evidence: List[EvidenceSchema] = []

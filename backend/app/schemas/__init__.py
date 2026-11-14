@@ -3,7 +3,9 @@ from backend.app.schemas.contract import (
     CommitmentCreateRequest, CommitmentReviseRequest, CommitmentSchema,
     EvidenceSchema, EvidenceUploadResponse, EvidenceListResponse,
     TimelineEventSchema, TimelineResponse,
-    ExtractionSchema, ErrorDetail, ErrorPayload, ErrorResponse
+    ExtractionSchema, ExtractionCreateRequest, ReviewItemTerms, ReviewItem,
+    ExtractionReviewRequest, ExtractionCreateResponse, ExtractionReviewResponse,
+    ErrorDetail, ErrorPayload, ErrorResponse
 )
 
 __all__ = [
@@ -11,5 +13,7 @@ __all__ = [
     "CommitmentCreateRequest", "CommitmentReviseRequest", "CommitmentSchema",
     "EvidenceSchema", "EvidenceUploadResponse", "EvidenceListResponse",
     "TimelineEventSchema", "TimelineResponse",
-    "ExtractionSchema", "ErrorDetail", "ErrorPayload", "ErrorResponse"
+    "ExtractionSchema", "ExtractionCreateRequest", "ReviewItemTerms", "ReviewItem",
+    "ExtractionReviewRequest", "ExtractionCreateResponse", "ExtractionReviewResponse",
+    "ErrorDetail", "ErrorPayload", "ErrorResponse"
 ]
