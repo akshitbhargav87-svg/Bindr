@@ -1,11 +1,34 @@
 """
-Session and Authorization Boundary for Promise Keeper.
+Session and Authorization Boundary for Promise Keeper (Bindr).
 
-Adheres to docs/API_CONTRACT.md & docs/ARCHITECTURE.md:
-- Implements cryptographically verifiable session tokens using HMAC-SHA256 signatures.
-- Rejects arbitrary or forged session cookies and bearer tokens with HTTP 401 UNAUTHENTICATED.
-- Provides per-session CSRF protection for cookie-based state-changing requests.
-- Enforces case ownership across all domain endpoints (404 NOT_FOUND on mismatch).
+Security & Authorization Invariants:
+------------------------------------
+1. Case Ownership Invariant:
+   Every case and case-linked resource (evidence, extractions, commitments, reviews,
+   timeline events, and binary content downloads) is strictly partitioned by the
+   authenticated user ID (`session.user_id`).
+   Inaccessible, non-owned, or non-existent IDs return HTTP 404 NOT_FOUND uniformly
+   to prevent ID enumeration and resource existence disclosure.
+
+2. Verifiable Session Identity:
+   Sessions use cryptographically signed tokens (HMAC-SHA256) encoding `session_id`,
+   `user_id`, `issued_at (iat)`, and `expires_at (exp)`. Arbitrary, forged, or altered
+   tokens are rejected with HTTP 401 UNAUTHENTICATED.
+
+3. Lifetime & Clock Skew Validation:
+   Sessions validate that `iat <= current_time + CLOCK_SKEW_TOLERANCE` and
+   `current_time <= exp + CLOCK_SKEW_TOLERANCE`. Future-dated or expired sessions
+   fail verification immediately.
+
+4. CSRF & Origin Defense-in-Depth:
+   Cookie-authenticated state-changing requests (POST, PUT, DELETE, PATCH) enforce
+   Origin header validation against approved `CORS_ORIGINS` and verify a per-session
+   HMAC-derived CSRF token (`X-CSRF-Token`). Wildcard origins are strictly forbidden.
+
+5. Secret Configuration Invariant:
+   In deployed environments (`production`, `staging`), `AUTH_SECRET` must be an explicit
+   high-entropy secret of at least 32 characters. Known development keys and predictable
+   defaults are rejected at startup.
 """
 
 from __future__ import annotations

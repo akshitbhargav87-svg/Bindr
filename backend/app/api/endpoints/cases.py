@@ -143,6 +143,15 @@ class ComplaintRequest(BaseModel):
 
 
 def _owned_case(db, case_id, session):
+    """
+    Enforce case ownership and active state invariant before mutating operations.
+
+    Invariants:
+    1. Case Ownership: Scoped strictly by `Case.owner_id == session.user_id`.
+       Unknown or cross-tenant case IDs return HTTP 404 NOT_FOUND to prevent ID enumeration.
+    2. Immutability of Resolved Cases: Once a case reaches 'resolved' status, it is closed
+       to all subsequent state-changing operations, returning HTTP 409 CASE_RESOLVED.
+    """
     case = db.query(Case).filter(Case.id == case_id, Case.owner_id == session.user_id).first()
     if not case:
         fail(404, "NOT_FOUND", "Case not found.")

@@ -49,9 +49,17 @@ async def upload_evidence(
 ):
     """
     Upload evidence file (PNG, JPEG, PDF, text/plain) to an owned case.
-    Requires an authenticated session.
-    Validates file format by content inspection, enforces max 10MB limit,
-    hashes with SHA-256, increments case version, and records a timeline event.
+
+    Security & Storage Invariants:
+    1. Case Ownership: Caller must own the target case (`Case.owner_id == session.user_id`).
+       Cross-user or missing cases return 404 NOT_FOUND.
+    2. Version Conflict Check: Enforces `expected_version == case.version` before writes;
+       aborts with 409 VERSION_CONFLICT on concurrent modifications.
+    3. Terminal State Check: Rejects uploads to resolved cases with 409 CASE_RESOLVED.
+    4. Magic-Byte Validation: Content is inspected for binary signatures; disguised files
+       are rejected before reaching storage. Max file size: 10 MiB.
+    5. Immutability & Digest: File is assigned a server-generated UUID key (`<evidence_id>.bin`),
+       hashed with SHA-256 for tamper-evidence, and stored in private storage.
     """
     form = await request.form()
     if sorted(form.keys()) != ["expected_version", "file"] or len(form.getlist("file")) != 1 or len(form.getlist("expected_version")) != 1:
@@ -207,9 +215,17 @@ def get_evidence_content(
     db: Session = Depends(get_db)
 ):
     """
-    Stream evidence raw bytes with secure headers.
-    Protected by session authorization and case ownership.
-    Headers: Cache-Control: private, no-store, X-Content-Type-Options: nosniff.
+    Stream evidence raw bytes with strict security headers.
+
+    Security & Storage Invariants:
+    1. Case Ownership: Caller must be authenticated and own the case enclosing this evidence.
+       Unauthorized or cross-user requests return 404 NOT_FOUND to prevent ID enumeration.
+    2. Private Backend-Mediated Streaming: No public object URLs or signed URLs are exposed.
+       All evidence bytes stream directly from private storage through the backend.
+    3. Security Headers:
+       - `Cache-Control: private, no-store` prevents intermediate proxy and browser caching.
+       - `X-Content-Type-Options: nosniff` mitigates MIME-sniffing attacks.
+       - RFC 5987 sanitized `Content-Disposition` preserves safe download filenames.
     """
     evidence = (
         db.query(Evidence)

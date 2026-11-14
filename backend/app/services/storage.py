@@ -1,3 +1,33 @@
+"""
+Evidence Storage Service and Invariants for Bindr.
+
+Storage & Evidence Preservation Invariants:
+-------------------------------------------
+1. Original Evidence Immutability:
+   Original evidence bytes uploaded by the user are immutable. They are never modified,
+   re-encoded, compressed, or overwritten after ingestion.
+
+2. Tamper Detection & SHA-256 Verification:
+   A SHA-256 cryptographic digest is computed immediately upon ingestion and persisted
+   in the Evidence database model. This ensures verifiable integrity across the lifetime
+   of the case and allows independent verification of stored bytes.
+
+3. Private Storage Isolation:
+   Evidence files are saved under server-generated UUID keys (`<evidence_id>.bin`),
+   never user-provided filenames. Files are stored strictly outside public web roots
+   with restrictive file descriptors (`0o600`) locally, or in private Google Cloud Storage
+   buckets with uniform bucket-level access and public access prevention enabled.
+
+4. Backend-Mediated Access Only:
+   Neither public object URLs nor signed URLs are ever generated or returned. All access
+   must pass through authenticated backend endpoints that verify case ownership and emit
+   security headers (`Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`).
+
+5. Atomic Rollback Compensation:
+   If an upload's enclosing database transaction fails, storage drivers provide best-effort
+   deletion compensation (`delete_file`) to prevent orphaned storage objects.
+"""
+
 import os
 import re
 import hashlib
