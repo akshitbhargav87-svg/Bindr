@@ -35,8 +35,10 @@ const second = await api.uploadEvidence(made.id,new File(['We will refund INR 49
 const revision = await api.extract(made.id,[second.evidence.id],second.case_version);
 const revised = await api.review(made.id,revision.extraction.id,{expected_version:revision.case_version,decision:'approve',items:[{candidate_id:revision.extraction.candidates[0].candidate_id,action:'revision',supersedes_id:reviewed.commitments[0].id,terms:{kind:'refund',description:'Revised refund for returned headphones',amount_minor:499900,currency:'INR',due_at:'2026-11-20T18:29:59Z'},evidence_ids:[first.evidence.id,second.evidence.id]}]});
 const detail = await api.getCase(made.id);
-assert.equal(detail.commitments[0].status,'superseded');
-assert.equal(detail.commitments[1].supersedes_id,detail.commitments[0].id);
+const originalId = reviewed.commitments[0].id;
+const revisedId = revised.commitments[0].id;
+assert.equal(detail.commitments.find(c=>c.id===originalId)?.status,'superseded');
+assert.equal(detail.commitments.find(c=>c.id===revisedId)?.supersedes_id,originalId);
 const complaint = await api.complaint(made.id,revised.case_version,'Complete the promised refund.');
 assert.ok(complaint.draft.body.length);
 assert.equal(complaint.case_version,revised.case_version);
@@ -45,6 +47,6 @@ await assert.rejects(()=>api.resolve(made.id,made.version,'Stale attempt'),error
 await api.resolve(made.id,revised.case_version,'Synthetic receipt confirmed.');
 const final = await api.getCase(made.id);
 assert.equal(final.case.status,'resolved');
-assert.equal(final.commitments[0].status,'superseded');
-assert.equal(final.commitments[1].status,'fulfilled');
+assert.equal(final.commitments.find(c=>c.id===originalId)?.status,'superseded');
+assert.equal(final.commitments.find(c=>c.id===revisedId)?.status,'fulfilled');
 console.log('PASS: real API session, create, upload, extract, review, revision, complaint, original bytes, stale-write rejection and resolution.');
