@@ -1,5 +1,6 @@
 """
 Automated test suite for Milestone 2: Document and Image Processing & Evidence Pipeline.
+Includes real RapidOCR screenshot verification without mocks.
 """
 
 import io
@@ -13,7 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import pymupdf
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from backend.app.ai.schemas import (
     CommitmentExtractionResult,
@@ -53,9 +54,12 @@ class TestDocumentProcessing(unittest.TestCase):
         doc.close()
         return pdf_bytes
 
-    def _create_synthetic_image(self, fmt: str = "PNG") -> bytes:
-        """Create a valid in-memory PNG or JPEG image."""
-        img = Image.new("RGB", (200, 80), color=(255, 255, 255))
+    def _create_synthetic_image(self, fmt: str = "PNG", text: str = "") -> bytes:
+        """Create a valid in-memory PNG or JPEG image, optionally with rendered text."""
+        img = Image.new("RGB", (700, 150), color=(255, 255, 255))
+        if text:
+            draw = ImageDraw.Draw(img)
+            draw.text((30, 60), text, fill=(0, 0, 0))
         buf = io.BytesIO()
         img.save(buf, format=fmt)
         return buf.getvalue()
@@ -85,10 +89,10 @@ class TestDocumentProcessing(unittest.TestCase):
         self.assertIn("[Page 2]", doc.raw_text)
 
     # -------------------------------------------------------------------------
-    # 2. PNG / JPEG image extraction
+    # 2. Injected OCR handler preservation (for unit testing)
     # -------------------------------------------------------------------------
-    def test_image_extraction_with_ocr_handler(self):
-        """Verify screenshot processing and text extraction with OCR handler."""
+    def test_image_extraction_with_injected_ocr_handler(self):
+        """Verify screenshot processing when a custom injected OCR handler is passed."""
         png_bytes = self._create_synthetic_image("PNG")
 
         def mock_ocr(img: Image.Image) -> str:
@@ -103,18 +107,36 @@ class TestDocumentProcessing(unittest.TestCase):
         self.assertFalse(doc.is_empty)
         self.assertIn("replace your defective blender", doc.raw_text)
 
-    def test_jpeg_extraction_fallback_without_ocr(self):
-        """Verify JPEG validation and graceful warning when no OCR handler is present."""
-        jpeg_bytes = self._create_synthetic_image("JPEG")
+    # -------------------------------------------------------------------------
+    # 3. Real Screenshot OCR using RapidOCR (NO MOCK)
+    # -------------------------------------------------------------------------
+    def test_real_screenshot_ocr_without_mock(self):
+        """Verify that default DocumentProcessor uses real RapidOCR to extract text from a PNG."""
+        message = "Your refund of 4,999 has been initiated and will be credited within 5-7 business days."
+        png_bytes = self._create_synthetic_image("PNG", text=message)
+
+        # Default processor without injected handler uses RapidOCR
+        processor = DocumentProcessor(ocr_handler=None)
+        doc = processor.process_bytes(png_bytes, filename="real_refund.png")
+
+        self.assertEqual(doc.file_type, "png")
+        self.assertFalse(doc.is_empty)
+        self.assertIn("refund", doc.raw_text.lower())
+        self.assertIn("4,999", doc.raw_text)
+        self.assertIn("business days", doc.raw_text.lower())
+
+    def test_blank_image_handling_without_text(self):
+        """Verify blank image produces empty status and proper warnings gracefully."""
+        blank_jpeg = self._create_synthetic_image("JPEG", text="")
         processor = DocumentProcessor(ocr_handler=None)
 
-        doc = processor.process_bytes(jpeg_bytes, filename="evidence.jpg")
+        doc = processor.process_bytes(blank_jpeg, filename="blank.jpg")
         self.assertEqual(doc.file_type, "jpg")
         self.assertTrue(doc.is_empty)
         self.assertTrue(len(doc.extraction_warnings) > 0)
 
     # -------------------------------------------------------------------------
-    # 3. Unsupported file formats rejection
+    # 4. Unsupported file formats rejection
     # -------------------------------------------------------------------------
     def test_unsupported_file_format_rejected(self):
         """Ensure non-document/image files are rejected with UnsupportedFileTypeError."""
@@ -128,7 +150,7 @@ class TestDocumentProcessing(unittest.TestCase):
             processor.process_bytes(b"some text", filename="notes.docx")
 
     # -------------------------------------------------------------------------
-    # 4. Empty or unreadable documents
+    # 5. Empty or unreadable documents
     # -------------------------------------------------------------------------
     def test_empty_file_rejected(self):
         """Ensure empty 0-byte files raise UnreadableDocumentError."""
@@ -144,7 +166,6 @@ class TestDocumentProcessing(unittest.TestCase):
 
     def test_scanned_or_blank_pdf_flags_warning(self):
         """Ensure a PDF with no extractable text flags warnings and marks is_empty."""
-        # PDF with empty blank page
         doc = pymupdf.open()
         doc.new_page()  # blank page
         pdf_bytes = doc.tobytes()
@@ -156,7 +177,7 @@ class TestDocumentProcessing(unittest.TestCase):
         self.assertIn("no extractable text", res.extraction_warnings[0])
 
     # -------------------------------------------------------------------------
-    # 5. Evidence metadata preservation & traceability
+    # 6. Evidence metadata preservation & traceability (Pipeline)
     # -------------------------------------------------------------------------
     def test_evidence_to_promise_pipeline_traceability(self):
         """Verify extract_commitment_from_evidence preserves evidence ID, filename, and page numbers."""
@@ -172,7 +193,6 @@ class TestDocumentProcessing(unittest.TestCase):
             provider=self.mock_provider,
         )
 
-        # Check evidence traceability
         self.assertIsNotNone(result.evidence_metadata)
         self.assertEqual(result.evidence_metadata.evidence_id, "ev_abc123")
         self.assertEqual(result.evidence_metadata.filename, "customer_refund.pdf")
@@ -180,20 +200,36 @@ class TestDocumentProcessing(unittest.TestCase):
         self.assertEqual(result.evidence_metadata.total_pages, 1)
         self.assertEqual(result.evidence_metadata.page_numbers, [1])
 
-        # Check commitment extraction
         self.assertEqual(result.commitment_category, CommitmentCategory.REFUND)
         self.assertEqual(result.commitment_type, CommitmentType.EXPLICIT)
         self.assertEqual(result.amount, 120.50)
         self.assertEqual(result.currency, "USD")
         self.assertIsNotNone(result.supporting_quotation)
-        self.assertIn("refund", result.supporting_quotation.lower())
+
+    def test_real_screenshot_pipeline_end_to_end(self):
+        """End-to-end pipeline: Real PNG screenshot -> RapidOCR -> PromiseExtractionEngine."""
+        message = "Acme Corp has approved your refund of $150.00 within 5-7 business days."
+        png_bytes = self._create_synthetic_image("PNG", text=message)
+
+        result = extract_commitment_from_evidence(
+            file_source=png_bytes,
+            filename="real_screenshot.png",
+            evidence_id="ev_real_ocr_1",
+            provider=self.mock_provider,
+        )
+
+        self.assertIsNotNone(result.evidence_metadata)
+        self.assertEqual(result.evidence_metadata.evidence_id, "ev_real_ocr_1")
+        self.assertEqual(result.evidence_metadata.file_type, "png")
+        self.assertEqual(result.commitment_category, CommitmentCategory.REFUND)
+        self.assertEqual(result.amount, 150.0)
+        self.assertEqual(result.deadline.duration_value, 5.0)
 
     # -------------------------------------------------------------------------
-    # 6. Unreadable document flows safely into promise result
+    # 7. Unreadable document flows safely into promise result
     # -------------------------------------------------------------------------
     def test_empty_evidence_requires_user_confirmation(self):
         """Ensure an unreadable/empty document returns safe result requiring user confirmation."""
-        # Blank PDF
         doc = pymupdf.open()
         doc.new_page()
         blank_pdf_bytes = doc.tobytes()

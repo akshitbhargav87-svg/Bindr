@@ -1,4 +1,4 @@
-# AI Engine proposed dependencies for Bindr (Milestone 1 + Milestone 2)
+# AI Engine proposed dependencies for Bindr (Milestones 1 & 2 + OCR)
 # Backend owner: Review and incorporate into the root/backend requirements.txt
 
 # Core validation and data modeling
@@ -12,6 +12,9 @@ pymupdf>=1.24.0
 
 # Image & Screenshot handling (Milestone 2)
 Pillow>=10.0.0
+
+# High-accuracy in-Python OCR engine for screenshots (Milestone 2 Hotfix)
+rapidocr>=3.0.0
 
 # Testing and development
 pytest>=8.0.0,<9.0.0

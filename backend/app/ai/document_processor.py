@@ -191,26 +191,37 @@ class DocumentProcessor:
         warnings: List[str] = []
         extracted_text = ""
 
-        # Use injected OCR handler if provided
+        # Use injected OCR handler if provided (for testing/custom engines)
         if self.ocr_handler:
             try:
                 extracted_text = (self.ocr_handler(image) or "").strip()
             except Exception as e:
                 warnings.append(f"OCR handler failure: {e}")
         else:
-            # Check if pytesseract is available in environment
+            # Default to RapidOCR with onnxruntime
             try:
-                import pytesseract
-                extracted_text = pytesseract.image_to_string(image).strip()
-            except (ImportError, Exception):
-                warnings.append(
-                    f"No active OCR engine installed on host for image '{filename}'. "
-                    f"Image metadata preserved ({image.width}x{image.height} {image.format})."
-                )
+                import numpy as np
+                from rapidocr import RapidOCR
+                engine = RapidOCR()
+                output = engine(np.array(image.convert("RGB")))
+                if output and output.txts:
+                    extracted_text = "\n".join(output.txts).strip()
+            except ImportError:
+                # Optional fallback check for pytesseract
+                try:
+                    import pytesseract
+                    extracted_text = pytesseract.image_to_string(image).strip()
+                except (ImportError, Exception):
+                    warnings.append(
+                        f"No active OCR engine installed on host for image '{filename}'. "
+                        f"Image metadata preserved ({image.width}x{image.height} {image.format})."
+                    )
+            except Exception as e:
+                warnings.append(f"RapidOCR extraction failure for image '{filename}': {e}")
 
         is_empty = len(extracted_text) == 0
         if is_empty and not warnings:
-            warnings.append("Image OCR produced no readable text.")
+            warnings.append(f"Image '{filename}' contains no readable text.")
 
         page = DocumentPage(page_number=1, text=extracted_text)
 
