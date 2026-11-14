@@ -36,7 +36,7 @@ class EvidenceSchema(BaseModel):
 class CommitmentCreateRequest(BaseModel):
     kind: str = Field("refund", description="Kind of commitment: refund, replacement, service, other")
     description: str = Field(..., min_length=1, max_length=2000)
-    amount_minor: Optional[int] = None
+    amount_minor: Optional[int] = Field(None, ge=0, le=9007199254740991)
     currency: Optional[str] = None
     due_at: Optional[str] = None
     status: str = Field("active", description="Status: active, superseded, fulfilled")
@@ -61,7 +61,7 @@ class CommitmentCreateRequest(BaseModel):
 class CommitmentReviseRequest(BaseModel):
     description: str = Field(..., min_length=1, max_length=2000)
     kind: Optional[str] = None
-    amount_minor: Optional[int] = None
+    amount_minor: Optional[int] = Field(None, ge=0, le=9007199254740991)
     currency: Optional[str] = None
     due_at: Optional[str] = None
     evidence_ids: List[str] = []
@@ -106,7 +106,7 @@ class ExtractionCreateRequest(BaseModel):
 class ReviewItemTerms(BaseModel):
     kind: str = Field(..., description="kind: refund, replacement, service, other")
     description: str = Field(..., min_length=1, max_length=2000)
-    amount_minor: Optional[int] = None
+    amount_minor: Optional[int] = Field(None, ge=0, le=9007199254740991)
     currency: Optional[str] = None
     due_at: Optional[str] = None
 
@@ -126,7 +126,7 @@ class ReviewItemTerms(BaseModel):
 
 
 class ReviewItem(BaseModel):
-    candidate_id: str = Field(..., min_length=1)
+    candidate_id: str = Field(..., pattern=r"^c[1-9][0-9]*$")
     action: str = Field(..., description="'new' or 'revision'")
     supersedes_id: Optional[str] = None
     terms: ReviewItemTerms

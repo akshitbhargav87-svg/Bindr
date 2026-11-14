@@ -1,19 +1,20 @@
 """
-AI Module Adapter (Milestone 2 Boundary).
+AI Module Adapter (Milestone 2 & 3 Integration Boundary).
 
-Adheres to docs/AI_CONTRACT.md:
-- Provides a clean, isolated interface between the backend and Kunal's AI extraction module.
-- Keeps AI execution strictly separate from database persistence.
-- Handles provider timeouts and maps service failures to standard error codes (AI_TIMEOUT, AI_UNAVAILABLE, AI_INVALID_OUTPUT).
-- Validates that extracted source quotes are exact substrings of input evidence.
-- Ensures extracted candidates require human review before saving as commitments.
+Adheres to docs/AI_CONTRACT.md and docs/API_CONTRACT.md:
+- Provides a clean, isolated interface between backend services and Kunal's AI extraction module.
+- Preserves evidence IDs, filenames, page references, and original bytes.
+- Validates source quotations strictly against their specific originating evidence file.
+- Strictly forbids implicit mock inference; only uses mock provider when AI_PROVIDER=mock.
+- Translates provider errors and timeouts to standard codes (AI_UNAVAILABLE, AI_TIMEOUT, AI_INVALID_OUTPUT).
+- Rejects invented candidate IDs, negative amounts, and misattributed sources before persistence.
 """
 
 from __future__ import annotations
 
 import os
-import logging
 import re
+import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 from backend.app.core.config import settings
@@ -51,11 +52,13 @@ class UnreadableEvidenceError(AIAdapterError):
     code = "UNREADABLE_EVIDENCE"
 
 
-def extract_text_from_file_bytes(data: bytes, media_type: str) -> str:
+def extract_text_from_file_bytes(data: bytes, media_type: str, filename: Optional[str] = None) -> str:
     """
-    Extract readable text from evidence bytes.
-    Supports text/plain and PDF text layers.
-    Raises UnreadableEvidenceError if no readable text could be found.
+    Extract readable text from evidence bytes without brittle regexes or blind byte decoding.
+    Per API_CONTRACT:
+    - Supports text/plain UTF-8 text.
+    - If Kunal's AI OCR pipeline is available, delegates images and PDFs to it.
+    - Otherwise raises UnreadableEvidenceError (422) for non-text documents.
     """
     if not data or len(data) == 0:
         raise UnreadableEvidenceError("Evidence file is empty (0 bytes).")
@@ -66,54 +69,21 @@ def extract_text_from_file_bytes(data: bytes, media_type: str) -> str:
             if text:
                 return text
         except UnicodeDecodeError:
-            pass
+            raise UnreadableEvidenceError("Text evidence contains invalid UTF-8 encoding.")
 
-    elif media_type == "application/pdf":
-        # Extract text streams from PDF
-        text_parts = []
-        # Look for text between parentheses in PDF content streams (e.g. (Some text) Tj)
-        matches = re.findall(rb'\(([^\)\\]*(?:\\.[^\)\\]*)*)\)\s*(?:Tj|\'|")', data)
-        for m in matches:
-            try:
-                # Unescape standard PDF escapes
-                cleaned = m.decode("latin1", errors="ignore").replace("\\(", "(").replace("\\)", ")")
-                if cleaned.strip():
-                    text_parts.append(cleaned)
-            except Exception:
-                pass
-        
-        extracted = " ".join(text_parts).strip()
-        if extracted:
-            return extracted
-        
-        # Fallback: scan printable ASCII/UTF-8 strings in PDF
-        ascii_matches = re.findall(rb'[a-zA-Z0-9\s.,!?:;@#$%&*()_-]{10,}', data)
-        for s in ascii_matches:
-            try:
-                decoded = s.decode("ascii", errors="ignore").strip()
-                # filter out PDF dictionary keys
-                if decoded and not decoded.startswith("/") and len(decoded) > 15:
-                    text_parts.append(decoded)
-            except Exception:
-                pass
-        extracted = " ".join(text_parts).strip()
-        if extracted:
-            return extracted
-
-    elif media_type.startswith("image/"):
-        # For images, if OCR is not yet directly integrated in the runtime,
-        # inspect if readable ASCII text was mocked or provided
-        try:
-            # Check for text hints or text payload
-            decoded = data.decode("utf-8", errors="ignore")
-            readable = "".join(c for c in decoded if c.isprintable())
-            if len(readable.strip()) >= 10:
-                return readable.strip()
-        except Exception:
-            pass
+    # Check if Kunal's RapidOCR / evidence pipeline module is available
+    try:
+        from backend.app.ai import ocr
+        if hasattr(ocr, "extract_text_from_file"):
+            text = ocr.extract_text_from_file(data, media_type=media_type, filename=filename)
+            if text and text.strip():
+                return text.strip()
+    except (ImportError, AttributeError):
+        pass
 
     raise UnreadableEvidenceError(
-        f"No readable text could be extracted from evidence with media_type '{media_type}'."
+        f"No readable text could be extracted from evidence with media_type '{media_type}'. "
+        "Scanned documents and images require RapidOCR module integration."
     )
 
 
@@ -130,7 +100,7 @@ class AIModuleAdapter:
         """
         Instantiate Kunal's PromiseExtractionEngine with the configured provider.
         Respects AI_PROVIDER ('meta' or 'mock'), MODEL_API_KEY, META_MODEL, and META_BASE_URL.
-        Does NOT silently fall back to mock when in 'meta' mode.
+        CRITICAL: Does NOT silently fall back to mock when in 'meta' mode.
         """
         if self._engine is not None:
             return self._engine
@@ -151,12 +121,6 @@ class AIModuleAdapter:
         try:
             from backend.app.ai.providers.factory import get_ai_provider
             from backend.app.ai.engine import PromiseExtractionEngine
-            from backend.app.ai.providers.base import (
-                AIAuthenticationError,
-                AIConnectionError,
-                AIRateLimitError,
-                AIResponseParsingError,
-            )
 
             kwargs = {}
             if provider_name == "meta":
@@ -209,6 +173,7 @@ class AIModuleAdapter:
     ) -> Dict[str, Any]:
         """
         Validate and format input payload per AI_CONTRACT v1.
+        Preserves evidence IDs, filenames, page references, and original bytes.
         """
         if not evidence or len(evidence) == 0:
             raise AIValidationError("Extraction requires at least one evidence item (1-10 items allowed).")
@@ -216,10 +181,18 @@ class AIModuleAdapter:
             raise AIValidationError("Extraction allows at most 10 evidence items.")
 
         total_chars = 0
+        seen_ids = set()
         for ev in evidence:
+            eid = ev.get("evidence_id")
+            if not eid:
+                raise AIValidationError("Evidence record missing 'evidence_id'.")
+            if eid in seen_ids:
+                raise AIValidationError(f"Duplicate evidence ID '{eid}' in extraction request.")
+            seen_ids.add(eid)
+
             text = ev.get("text", "")
             if not text or not text.strip():
-                raise AIValidationError(f"Evidence '{ev.get('evidence_id')}' contains empty text.")
+                raise AIValidationError(f"Evidence '{eid}' contains empty text.")
             total_chars += len(text)
 
         if total_chars > 50000:
@@ -247,9 +220,11 @@ class AIModuleAdapter:
         """
         Execute promise extraction against evidence text.
         
-        CRITICAL INVARIANT:
-        Extracted commitments are returned purely as candidates for human-in-the-loop review.
-        They are NEVER persisted automatically.
+        CRITICAL INVARIANTS:
+        1. Candidates require explicit human review; never persisted automatically.
+        2. Quotations MUST be verified against their specific originating evidence file.
+        3. Never attribute a quote from file B to file A.
+        4. Rejects negative monetary amounts and invalid candidate schemas.
         """
         payload = self.prepare_extraction_input(
             case_id=case_id,
@@ -259,43 +234,87 @@ class AIModuleAdapter:
             tz_name=tz_name
         )
 
+        # 1. Attempt Kunal's pipeline interface if available
+        try:
+            from backend.app.ai import extract_commitment_from_evidence
+            pipeline_result = extract_commitment_from_evidence(
+                evidence=evidence,
+                existing_commitments=existing_commitments or [],
+                reference_time=payload["reference_time"],
+                timezone=tz_name
+            )
+            if pipeline_result and isinstance(pipeline_result, dict) and "candidates" in pipeline_result:
+                self._validate_and_sanitize_candidates(pipeline_result["candidates"], evidence)
+                return pipeline_result
+        except (ImportError, AttributeError):
+            pass
+
+        # 2. Extract per evidence item to guarantee accurate 1:1 quote attribution
         engine = self._get_engine()
+        candidates = []
+        candidate_counter = 1
 
         try:
-            # Delegate to Kunal's engine
-            # Concatenate or process evidence through the engine
-            combined_text = "\n\n".join(e["text"] for e in evidence)
-            result = engine.extract(text=combined_text)
+            for ev in evidence:
+                ev_id = ev["evidence_id"]
+                ev_text = ev["text"]
 
-            # Map result to AI_CONTRACT schema format
-            candidates = []
-            if result.commitment_category.value != "no_commitment":
-                # Verbatim source quote validation
+                result = engine.extract(text=ev_text)
+                if result.commitment_category.value == "no_commitment":
+                    continue
+
                 source_quote = getattr(result, "supporting_quotation", None) or getattr(result, "source_quote", None)
                 if not source_quote:
-                    source_quote = combined_text[:200]
+                    # Default snippet from this exact file
+                    source_quote = ev_text[:min(120, len(ev_text))]
 
-                first_ev_id = evidence[0]["evidence_id"]
+                # Verbatim source quote validation against this SPECIFIC file
+                if source_quote not in ev_text:
+                    raise AIInvalidOutputError(
+                        f"Model generated quote not found in source evidence '{ev_id}'."
+                    )
 
-                # Ensure quote is an exact substring of the evidence text
-                if source_quote and source_quote not in combined_text:
-                    raise AIInvalidOutputError("Model generated a source quote that is not an exact verbatim substring.")
+                if len(source_quote) > 2000:
+                    raise AIInvalidOutputError("Extracted source quote exceeds 2000 characters limit.")
 
-                amt_minor = int(round(result.amount * 100)) if getattr(result, "amount", None) is not None else None
+                amt_minor = None
+                if getattr(result, "amount", None) is not None:
+                    if result.amount < 0:
+                        raise AIInvalidOutputError("Model extracted a negative monetary amount.")
+                    amt_minor = int(round(result.amount * 100))
+                    if amt_minor < 0 or amt_minor > 9007199254740991:
+                        raise AIInvalidOutputError("Extracted amount_minor out of allowable range (0 - 9007199254740991).")
+
                 curr = getattr(result, "currency", None)
+                if curr:
+                    curr = curr.strip().upper()
+                    if len(curr) != 3:
+                        curr = None
+
+                # Amount and currency pairing rule
+                if (amt_minor is None and curr is not None) or (amt_minor is not None and curr is None):
+                    amt_minor = None
+                    curr = None
+
+                kind_val = result.commitment_category.value
+                if kind_val not in {"refund", "replacement", "service", "other"}:
+                    kind_val = "other"
+
+                cand_id = f"c{candidate_counter}"
+                candidate_counter += 1
 
                 candidates.append({
-                    "candidate_id": "c1",
+                    "candidate_id": cand_id,
                     "terms": {
-                        "kind": result.commitment_category.value if result.commitment_category.value in {"refund", "replacement", "service"} else "other",
-                        "description": result.commitment_description,
+                        "kind": kind_val,
+                        "description": result.commitment_description[:2000].strip(),
                         "amount_minor": amt_minor,
                         "currency": curr,
                         "due_at": None
                     },
                     "sources": [
                         {
-                            "evidence_id": first_ev_id,
+                            "evidence_id": ev_id,
                             "quote": source_quote
                         }
                     ],
@@ -316,7 +335,6 @@ class AIModuleAdapter:
         except AIAdapterError:
             raise
         except Exception as e:
-            err_str = str(e).lower()
             try:
                 from backend.app.ai.providers.base import (
                     AIAuthenticationError,
@@ -331,6 +349,7 @@ class AIModuleAdapter:
             except ImportError:
                 pass
 
+            err_str = str(e).lower()
             if isinstance(e, TimeoutError) or "timeout" in err_str or "timed out" in err_str:
                 raise AITimeoutError(f"AI provider request timed out: {e}") from e
             elif "auth" in err_str or "key" in err_str or "unauthorized" in err_str:
@@ -339,6 +358,41 @@ class AIModuleAdapter:
                 raise AIInvalidOutputError(f"AI provider returned malformed output: {e}") from e
             else:
                 raise AIServiceUnavailableError(f"AI provider error: {e}", code="AI_UNAVAILABLE") from e
+
+    def _validate_and_sanitize_candidates(
+        self,
+        candidates: List[Dict[str, Any]],
+        evidence: List[Dict[str, Any]]
+    ):
+        """Validate candidate schema, candidate IDs, money values, and source attribution."""
+        evidence_map = {e["evidence_id"]: e["text"] for e in evidence}
+        valid_id_pattern = re.compile(r"^c[1-9][0-9]*$")
+
+        for cand in candidates:
+            cand_id = cand.get("candidate_id", "")
+            if not valid_id_pattern.match(cand_id):
+                raise AIInvalidOutputError(f"Candidate ID '{cand_id}' violates contract pattern '^c[1-9][0-9]*$'.")
+
+            # Check money values
+            terms = cand.get("terms", {})
+            amt = terms.get("amount_minor")
+            if amt is not None and (not isinstance(amt, int) or amt < 0 or amt > 9007199254740991):
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' contains invalid amount_minor: {amt}.")
+
+            # Validate each source quote against its specific file
+            sources = cand.get("sources", [])
+            if not sources:
+                raise AIInvalidOutputError(f"Candidate '{cand_id}' has no source citations.")
+
+            for src in sources:
+                eid = src.get("evidence_id")
+                quote = src.get("quote", "")
+                if eid not in evidence_map:
+                    raise AIInvalidOutputError(f"Candidate '{cand_id}' cites evidence '{eid}' not in request.")
+                if quote not in evidence_map[eid]:
+                    raise AIInvalidOutputError(
+                        f"Candidate '{cand_id}' quote is not a verbatim substring of cited evidence '{eid}'."
+                    )
 
     def _mock_extraction_contract_response(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Explicitly labeled mock adapter output for development and unit testing."""

@@ -63,6 +63,23 @@ def db_session():
 
 @pytest.fixture(scope="function")
 def client(db_session):
+    """Authenticated client with pre-set pk_session cookie."""
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        test_client.cookies.set("pk_session", "pk_test_session_token_authenticated")
+        yield test_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def anonymous_client(db_session):
+    """Unauthenticated client without session credentials."""
     def override_get_db():
         try:
             yield db_session

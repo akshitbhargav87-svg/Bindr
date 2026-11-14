@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_db
+from backend.app.core.auth import get_current_session, SessionData
 from backend.app.models.case import Case, utc_now_iso
 from backend.app.models.evidence import Evidence
 from backend.app.models.timeline import TimelineEvent
@@ -39,10 +40,12 @@ async def upload_evidence(
     case_id: str,
     file: UploadFile = File(...),
     expected_version: Optional[int] = Form(None),
+    session: SessionData = Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
     """
     Upload evidence file (PNG, JPEG, PDF, text/plain) to a case.
+    Requires an authenticated session.
     Validates file format by content inspection, enforces max 10MB limit,
     hashes with SHA-256, increments case version, and records a timeline event.
     """
@@ -64,7 +67,7 @@ async def upload_evidence(
     try:
         content = await file.read()
     except Exception as e:
-        _api_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "UNREADABLE_EVIDENCE", f"Could not read upload: {e}")
+        _api_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "UNREADABLE_EVIDENCE", "Could not read upload payload.")
 
     # Check 0 bytes
     if not content or len(content) == 0:
@@ -124,7 +127,7 @@ async def upload_evidence(
     except Exception as e:
         db.rollback()
         storage_service.delete_file(storage_key)
-        _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "DATABASE_ERROR", f"Failed to record evidence: {e}")
+        _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "DATABASE_ERROR", "Failed to record evidence.")
 
     return {
         "evidence": EvidenceSchema.model_validate(evidence),
@@ -133,8 +136,12 @@ async def upload_evidence(
 
 
 @router.get("", response_model=EvidenceListResponse)
-def list_case_evidence(case_id: str, db: Session = Depends(get_db)):
-    """List all evidence metadata associated with a case."""
+def list_case_evidence(
+    case_id: str,
+    session: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    """List all evidence metadata associated with a case. Requires authenticated session."""
     case = db.query(Case).filter(Case.id == case_id).first()
     if not case:
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Case {case_id} not found.")
@@ -149,8 +156,13 @@ def list_case_evidence(case_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{evidence_id}", response_model=EvidenceSchema)
-def get_evidence_metadata(case_id: str, evidence_id: str, db: Session = Depends(get_db)):
-    """Retrieve metadata for a specific evidence item."""
+def get_evidence_metadata(
+    case_id: str,
+    evidence_id: str,
+    session: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    """Retrieve metadata for a specific evidence item. Requires authenticated session."""
     evidence = db.query(Evidence).filter(Evidence.id == evidence_id, Evidence.case_id == case_id).first()
     if not evidence:
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Evidence {evidence_id} not found under case {case_id}.")
@@ -158,9 +170,15 @@ def get_evidence_metadata(case_id: str, evidence_id: str, db: Session = Depends(
 
 
 @router.get("/{evidence_id}/content")
-def get_evidence_content(case_id: str, evidence_id: str, db: Session = Depends(get_db)):
+def get_evidence_content(
+    case_id: str,
+    evidence_id: str,
+    session: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
     """
     Stream evidence raw bytes with secure headers.
+    Protected by session authorization.
     Headers: Cache-Control: private, no-store, X-Content-Type-Options: nosniff.
     """
     evidence = db.query(Evidence).filter(Evidence.id == evidence_id, Evidence.case_id == case_id).first()
@@ -170,7 +188,7 @@ def get_evidence_content(case_id: str, evidence_id: str, db: Session = Depends(g
     try:
         file_path = storage_service.get_file_path(evidence.storage_key)
     except StorageError as e:
-        _api_error(status.HTTP_404_NOT_FOUND, "FILE_NOT_FOUND", str(e))
+        _api_error(status.HTTP_404_NOT_FOUND, "FILE_NOT_FOUND", "Stored evidence file not found.")
 
     safe_name = sanitize_filename(evidence.filename)
     headers = {

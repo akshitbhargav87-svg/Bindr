@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_db
+from backend.app.core.auth import get_current_session, SessionData
 from backend.app.models.case import Case, utc_now_iso
 from backend.app.models.evidence import Evidence
 from backend.app.models.commitment import Commitment
@@ -42,6 +43,7 @@ def _api_error(status_code: int, code: str, message: str, details: Optional[list
 def create_extraction(
     case_id: str,
     payload: ExtractionCreateRequest,
+    session: SessionData = Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -81,10 +83,10 @@ def create_extraction(
                 f"Evidence {ev_id} not found under case {case_id}."
             )
 
-        # Read file bytes from storage and extract text
+        # Read file bytes from storage and extract text preserving original bytes
         try:
             file_bytes = storage_service.read_file(ev.storage_key)
-            text = extract_text_from_file_bytes(file_bytes, ev.media_type)
+            text = extract_text_from_file_bytes(file_bytes, ev.media_type, filename=ev.filename)
         except UnreadableEvidenceError as e:
             _api_error(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -95,12 +97,16 @@ def create_extraction(
             _api_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 "INTERNAL_ERROR",
-                f"Could not read stored evidence {ev_id}: {e}"
+                "Could not read stored evidence."
             )
 
         evidence_items.append({
             "evidence_id": ev.id,
+            "filename": ev.filename,
+            "media_type": ev.media_type,
+            "file_bytes": file_bytes,
             "text": text,
+            "page_references": None,
             "occurred_at": None
         })
 
@@ -137,7 +143,7 @@ def create_extraction(
     except (AIValidationError, UnreadableEvidenceError) as e:
         _api_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", str(e))
     except Exception as e:
-        _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", f"AI extraction failed: {e}")
+        _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "AI extraction failed.")
 
     # Persist pending_review draft
     now_iso = utc_now_iso()
@@ -184,12 +190,14 @@ def review_extraction(
     case_id: str,
     extraction_id: str,
     payload: ExtractionReviewRequest,
+    session: SessionData = Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
     """
     Review and confirm or reject an AI extraction draft.
     Saves confirmed commitments atomically.
     Repeated reviews on closed drafts return 409 DRAFT_CLOSED.
+    Rejects invented candidate IDs and negative refund amounts.
     """
     case = db.query(Case).filter(Case.id == case_id).first()
     if not case:
@@ -271,36 +279,62 @@ def review_extraction(
     created_commitments: List[Commitment] = []
 
     for idx, item in enumerate(payload.items):
+        # 1. Reject invented candidate IDs
+        if item.candidate_id not in valid_candidate_ids:
+            _api_error(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "VALIDATION_ERROR",
+                f"Candidate ID '{item.candidate_id}' does not exist in extraction draft.",
+                details=[{"field": f"items[{idx}].candidate_id", "message": f"Candidate ID '{item.candidate_id}' not found in draft"}]
+            )
+
+        # 2. Reject duplicate approvals within items
         if item.candidate_id in seen_candidate_ids:
             _api_error(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 "VALIDATION_ERROR",
-                f"Duplicate candidate_id '{item.candidate_id}' in review items."
+                f"Duplicate candidate_id '{item.candidate_id}' in review items.",
+                details=[{"field": f"items[{idx}].candidate_id", "message": "Duplicate candidate_id"}]
             )
         seen_candidate_ids.add(item.candidate_id)
 
-        # Amount and currency pairing rules
+        # 3. Reject negative money values and invalid currency pairings
         amt = item.terms.amount_minor
         curr = item.terms.currency
+
+        if amt is not None and amt < 0:
+            _api_error(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "VALIDATION_ERROR",
+                "amount_minor must be a non-negative integer.",
+                details=[{"field": f"items[{idx}].terms.amount_minor", "message": "Must be a non-negative integer"}]
+            )
+
         if (amt is None and curr is not None) or (amt is not None and curr is None):
             _api_error(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 "VALIDATION_ERROR",
-                "Amount and currency must be either both null or both populated."
+                "Amount and currency must be either both null or both populated.",
+                details=[{"field": f"items[{idx}].terms.amount_minor", "message": "Amount and currency must be paired"}]
             )
-        if item.terms.kind == "refund" and (amt is None or curr is None):
-            _api_error(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "VALIDATION_ERROR",
-                "A reviewed refund commitment requires both amount_minor and currency."
-            )
+
+        # 4. Reject non-positive refund amounts
+        if item.terms.kind == "refund":
+            if amt is None or amt <= 0 or curr is None:
+                _api_error(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    "VALIDATION_ERROR",
+                    "A reviewed refund commitment requires both positive amount_minor and valid currency.",
+                    details=[{"field": f"items[{idx}].terms.amount_minor", "message": "Reviewed refund commitment requires positive amount_minor"}]
+                )
 
         # Evidence validation: at least one evidence ID from extraction
         if not any(eid in extraction.evidence_ids for eid in item.evidence_ids):
             _api_error(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 "VALIDATION_ERROR",
-                f"Item for candidate '{item.candidate_id}' must reference at least one evidence ID from the extraction."
+                f"Item for candidate '{item.candidate_id}' must reference at least one evidence ID from the extraction.",
+                details=[{"field": f"items[{idx}].evidence_ids", "message": "Must reference at least one evidence ID from extraction"}]
             )
 
         # Verify all referenced evidence IDs belong to this case
@@ -319,14 +353,14 @@ def review_extraction(
                 _api_error(
                     status.HTTP_422_UNPROCESSABLE_ENTITY,
                     "VALIDATION_ERROR",
-                    f"Action 'new' requires supersedes_id to be null."
+                    "Action 'new' requires supersedes_id to be null."
                 )
         elif item.action == "revision":
             if not item.supersedes_id:
                 _api_error(
                     status.HTTP_422_UNPROCESSABLE_ENTITY,
                     "VALIDATION_ERROR",
-                    f"Action 'revision' requires an active supersedes_id."
+                    "Action 'revision' requires an active supersedes_id."
                 )
             predecessor = db.query(Commitment).filter(
                 Commitment.id == item.supersedes_id,
@@ -366,35 +400,46 @@ def review_extraction(
             created_at=now_iso
         )
         comm.evidence_ids = item.evidence_ids
-        db.add(comm)
-        db.flush()
-
-        timeline_event_type = "commitment_created" if item.action == "new" else "commitment_revised"
-        timeline_desc = (
-            f"Commitment confirmed from AI extraction '{item.candidate_id}': {comm.description[:60]}..."
-            if item.action == "new"
-            else f"Commitment revised from AI extraction '{item.candidate_id}' superseding {item.supersedes_id}."
-        )
-        timeline = TimelineEvent(
-            case_id=case_id,
-            event_type=timeline_event_type,
-            description=timeline_desc,
-            event_date=now_iso,
-            created_at=now_iso
-        )
-        db.add(timeline)
         created_commitments.append(comm)
 
-    # Close extraction draft
-    extraction.status = "reviewed"
-    extraction.reviewed_commitment_ids = [c.id for c in created_commitments]
-    case.version += 1
+    # Execute all review state persistence inside an atomic transaction
+    try:
+        for c in created_commitments:
+            db.add(c)
+            db.flush()
 
-    db.commit()
-    db.refresh(extraction)
-    db.refresh(case)
-    for c in created_commitments:
-        db.refresh(c)
+            timeline_event_type = "commitment_created" if not c.supersedes_id else "commitment_revised"
+            timeline_desc = (
+                f"Commitment confirmed from AI extraction '{c.candidate_id}': {c.description[:60]}..."
+                if not c.supersedes_id
+                else f"Commitment revised from AI extraction '{c.candidate_id}' superseding {c.supersedes_id}."
+            )
+            timeline = TimelineEvent(
+                case_id=case_id,
+                event_type=timeline_event_type,
+                description=timeline_desc,
+                event_date=now_iso,
+                created_at=now_iso
+            )
+            db.add(timeline)
+
+        # Close extraction draft
+        extraction.status = "reviewed"
+        extraction.reviewed_commitment_ids = [c.id for c in created_commitments]
+        case.version += 1
+
+        db.commit()
+        db.refresh(extraction)
+        db.refresh(case)
+        for c in created_commitments:
+            db.refresh(c)
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Failed to persist reviewed commitments.")
 
     return {
         "extraction": ExtractionSchema(
@@ -406,23 +451,6 @@ def review_extraction(
             reviewed_commitment_ids=extraction.reviewed_commitment_ids,
             created_at=extraction.created_at
         ),
-        "commitments": [
-            CommitmentSchema(
-                id=c.id,
-                case_id=c.case_id,
-                extraction_id=c.extraction_id,
-                candidate_id=c.candidate_id,
-                kind=c.kind,
-                description=c.description,
-                amount_minor=c.amount_minor,
-                currency=c.currency,
-                due_at=c.due_at,
-                status=c.status,
-                supersedes_id=c.supersedes_id,
-                evidence_ids=c.evidence_ids,
-                reviewed_at=c.reviewed_at,
-                created_at=c.created_at
-            ) for c in created_commitments
-        ],
+        "commitments": [CommitmentSchema.model_validate(c) for c in created_commitments],
         "case_version": case.version
     }
