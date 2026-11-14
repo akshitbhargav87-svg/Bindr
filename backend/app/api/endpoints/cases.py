@@ -54,9 +54,10 @@ def get_case(case_id: str, db: Session = Depends(get_db)):
             detail=f"Case {case_id} not found."
         )
 
-    # Sort commitments and evidence by created_at ascending, then id ascending
+    # Sort commitments, evidence, and extractions by created_at ascending, then id ascending
     commitments_sorted = sorted(case.commitments, key=lambda c: (c.created_at, c.id))
     evidence_sorted = sorted(case.evidence, key=lambda e: (e.created_at, e.id))
+    extractions_sorted = sorted(case.extractions, key=lambda x: (x.created_at, x.id))
 
     return {
         "case": CaseSchema.model_validate(case),
@@ -79,5 +80,15 @@ def get_case(case_id: str, db: Session = Depends(get_db)):
                 created_at=c.created_at
             ) for c in commitments_sorted
         ],
-        "extractions": []
+        "extractions": [
+            ExtractionSchema(
+                id=x.id,
+                case_id=x.case_id,
+                evidence_ids=x.evidence_ids,
+                status=x.status,
+                candidates=x.candidates,
+                reviewed_commitment_ids=x.reviewed_commitment_ids,
+                created_at=x.created_at
+            ) for x in extractions_sorted
+        ]
     }

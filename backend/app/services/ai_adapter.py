@@ -45,6 +45,76 @@ class AIValidationError(AIAdapterError):
     code = "VALIDATION_ERROR"
 
 
+class UnreadableEvidenceError(AIAdapterError):
+    code = "UNREADABLE_EVIDENCE"
+
+
+def extract_text_from_file_bytes(data: bytes, media_type: str) -> str:
+    """
+    Extract readable text from evidence bytes.
+    Supports text/plain and PDF text layers.
+    Raises UnreadableEvidenceError if no readable text could be found.
+    """
+    if not data or len(data) == 0:
+        raise UnreadableEvidenceError("Evidence file is empty (0 bytes).")
+
+    if media_type == "text/plain":
+        try:
+            text = data.decode("utf-8").strip()
+            if text:
+                return text
+        except UnicodeDecodeError:
+            pass
+
+    elif media_type == "application/pdf":
+        # Extract text streams from PDF
+        text_parts = []
+        # Look for text between parentheses in PDF content streams (e.g. (Some text) Tj)
+        matches = re.findall(rb'\(([^\)\\]*(?:\\.[^\)\\]*)*)\)\s*(?:Tj|\'|")', data)
+        for m in matches:
+            try:
+                # Unescape standard PDF escapes
+                cleaned = m.decode("latin1", errors="ignore").replace("\\(", "(").replace("\\)", ")")
+                if cleaned.strip():
+                    text_parts.append(cleaned)
+            except Exception:
+                pass
+        
+        extracted = " ".join(text_parts).strip()
+        if extracted:
+            return extracted
+        
+        # Fallback: scan printable ASCII/UTF-8 strings in PDF
+        ascii_matches = re.findall(rb'[a-zA-Z0-9\s.,!?:;@#$%&*()_-]{10,}', data)
+        for s in ascii_matches:
+            try:
+                decoded = s.decode("ascii", errors="ignore").strip()
+                # filter out PDF dictionary keys
+                if decoded and not decoded.startswith("/") and len(decoded) > 15:
+                    text_parts.append(decoded)
+            except Exception:
+                pass
+        extracted = " ".join(text_parts).strip()
+        if extracted:
+            return extracted
+
+    elif media_type.startswith("image/"):
+        # For images, if OCR is not yet directly integrated in the runtime,
+        # inspect if readable ASCII text was mocked or provided
+        try:
+            # Check for text hints or text payload
+            decoded = data.decode("utf-8", errors="ignore")
+            readable = "".join(c for c in decoded if c.isprintable())
+            if len(readable.strip()) >= 10:
+                return readable.strip()
+        except Exception:
+            pass
+
+    raise UnreadableEvidenceError(
+        f"No readable text could be extracted from evidence with media_type '{media_type}'."
+    )
+
+
 class AIModuleAdapter:
     """
     Adapter orchestrating calls to Kunal's AI engine adhering to AI_CONTRACT v1.
@@ -140,20 +210,26 @@ class AIModuleAdapter:
             candidates = []
             if result.commitment_category.value != "no_commitment":
                 # Verbatim source quote validation
-                source_quote = result.source_quote or combined_text[:200]
+                source_quote = getattr(result, "supporting_quotation", None) or getattr(result, "source_quote", None)
+                if not source_quote:
+                    source_quote = combined_text[:200]
+
                 first_ev_id = evidence[0]["evidence_id"]
 
                 # Ensure quote is an exact substring of the evidence text
                 if source_quote and source_quote not in combined_text:
                     raise AIInvalidOutputError("Model generated a source quote that is not an exact verbatim substring.")
 
+                amt_minor = int(round(result.amount * 100)) if getattr(result, "amount", None) is not None else None
+                curr = getattr(result, "currency", None)
+
                 candidates.append({
                     "candidate_id": "c1",
                     "terms": {
                         "kind": result.commitment_category.value if result.commitment_category.value in {"refund", "replacement", "service"} else "other",
                         "description": result.commitment_description,
-                        "amount_minor": None,
-                        "currency": None,
+                        "amount_minor": amt_minor,
+                        "currency": curr,
                         "due_at": None
                     },
                     "sources": [

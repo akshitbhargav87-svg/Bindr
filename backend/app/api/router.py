@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from backend.app.api.endpoints import health, cases, commitments, evidence, timeline
+from backend.app.api.endpoints import health, cases, commitments, evidence, timeline, extractions
 
 api_router = APIRouter()
 
@@ -13,3 +13,6 @@ api_router.include_router(commitments.router)
 # Evidence & Timeline
 api_router.include_router(evidence.router)
 api_router.include_router(timeline.router)
+
+# Extractions & Review
+api_router.include_router(extractions.router)
