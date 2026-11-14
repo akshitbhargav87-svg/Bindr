@@ -25,6 +25,14 @@ logger = logging.getLogger("backend.app.main")
 async def lifespan(app: FastAPI):
     validate_cloud_run_settings()
     get_auth_secret()  # Reject a weak or absent production signing key before serving traffic.
+    if settings.AUTH_PROVIDER not in {"firebase", "anonymous"}:
+        raise RuntimeError("AUTH_PROVIDER must be firebase or anonymous.")
+    if settings.ENVIRONMENT.lower() in {"production", "prod", "staging", "deployed"} and settings.AUTH_PROVIDER != "firebase":
+        raise RuntimeError("Deployed Bindr requires account authentication; anonymous development mode is forbidden.")
+    if settings.AUTH_PROVIDER == "firebase" and not all((settings.FIREBASE_PROJECT_ID, settings.FIREBASE_API_KEY, settings.FIREBASE_AUTH_DOMAIN, settings.FIREBASE_APP_ID)):
+        raise RuntimeError("Complete the Firebase project configuration before enabling account sign-in.")
+    if os.getenv("FIREBASE_AUTH_EMULATOR_HOST") and settings.ENVIRONMENT.lower() in {"production", "prod", "staging", "deployed"}:
+        raise RuntimeError("Authentication emulators are forbidden in deployed environments.")
     # Initialize SQLite tables and run non-destructive schema migrations
     Base.metadata.create_all(bind=engine)
     run_sqlite_migrations(engine)
@@ -140,6 +148,11 @@ async def private_response_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "same-origin"
     response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    # OAuth popup sign-in needs its opener; do not set COOP=same-origin.
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    if settings.ENVIRONMENT.lower() in {"production", "prod", "staging", "deployed"}:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000"
     if request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "private, no-store"
     return response

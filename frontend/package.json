@@ -7,21 +7,25 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "typecheck": "tsc --noEmit",
-    "check": "node --test checks/workspace.test.mjs checks/capture.test.mjs checks/case.test.mjs checks/complaint.test.mjs checks/planning.test.mjs checks/http-flow.test.mjs",
+    "check": "node --test checks/workspace.test.mjs checks/capture.test.mjs checks/case.test.mjs checks/complaint.test.mjs checks/planning.test.mjs checks/http-flow.test.mjs checks/account.test.mjs",
     "build:http": "node checks/build-http.mjs",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "@firebase/app": "0.14.9",
+    "@firebase/auth": "1.12.1",
     "@fontsource/ibm-plex-mono": "^5.2.0",
     "@fontsource/inter": "^5.2.0",
     "@fontsource/nunito": "^5.3.0",
     "lucide-react": "^0.468.0",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.6.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",

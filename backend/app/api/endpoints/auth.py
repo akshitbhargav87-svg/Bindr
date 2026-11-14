@@ -28,6 +28,8 @@ def _check_origin(request: Request):
 @router.post("/session", response_model=SessionBootstrapResponse, status_code=201)
 def create_session(request: Request, response: Response,
                    payload: Optional[SessionBootstrapRequest] = None):
+    if settings.AUTH_PROVIDER == "firebase":
+        raise HTTPException(401, detail="Sign in with Google or email to open your workspace.")
     _check_origin(request)
     from backend.app.services.rate_limit import enforce_limit
     enforce_limit(("session", request.client.host if request.client else "unknown"), 60, 60)
@@ -51,6 +53,10 @@ def create_session(request: Request, response: Response,
 def get_session(response: Response, session: SessionData = Depends(get_current_session)):
     response.headers["Cache-Control"] = "no-store"
     secure = settings.ENVIRONMENT.lower() in {"production", "prod", "staging", "deployed"}
+    if settings.AUTH_PROVIDER == "firebase":
+        from backend.app.services.account_auth import set_cookie
+        set_cookie(response, "csrf", session.csrf_token, settings.ACCOUNT_SESSION_SECONDS, False)
+        return SessionBootstrapResponse(session_id=session.session_id, user_id=session.user_id, csrf_token=session.csrf_token)
     response.set_cookie("pk_csrf", session.csrf_token, httponly=False, samesite="lax",
                         secure=secure, path="/", max_age=settings.SESSION_LIFETIME_SECONDS)
     return SessionBootstrapResponse(session_id=session.session_id, user_id=session.user_id,
@@ -58,6 +64,8 @@ def get_session(response: Response, session: SessionData = Depends(get_current_s
 
 @router.delete("/session")
 def delete_session(response: Response, session: SessionData = Depends(get_current_session)):
+    if settings.AUTH_PROVIDER == "firebase":
+        raise HTTPException(405, detail="Use the account sign-out endpoint.")
     response.delete_cookie("pk_session", path="/")
     response.delete_cookie("pk_csrf", path="/")
     return {"message": "Browser session cleared. This anonymous workspace cannot be recovered without its cookie."}

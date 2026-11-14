@@ -1,14 +1,20 @@
 import { createContext,useCallback,useContext,useEffect,useRef,useState,type ReactNode } from 'react';
 import type { ComplaintSession,SavedComplaint } from '../api/complaint-model';
-const Context=createContext<{sessions:Record<string,ComplaintSession>;saved:Record<string,SavedComplaint>;update:(id:string,change:(prior:ComplaintSession|undefined)=>ComplaintSession)=>void;save:(id:string)=>void;remove:(id:string)=>void}|null>(null);
+import { useAuth } from './Auth';
+import { accountRequest } from '../api/account';
+import { loadCase } from '../api/case-service';
+import { newComplaintSession } from '../api/complaint';
+const Context=createContext<{sessions:Record<string,ComplaintSession>;saved:Record<string,SavedComplaint>;update:(id:string,change:(prior:ComplaintSession|undefined)=>ComplaintSession)=>void;save:(id:string)=>Promise<void>;remove:(id:string)=>void;error:string|null;ready:boolean}|null>(null);
 export function ComplaintsProvider({children}:{children:ReactNode}) {
   const [sessions,setSessions]=useState<Record<string,ComplaintSession>>({});const [saved,setSaved]=useState<Record<string,SavedComplaint>>({});
   const removed=useRef(new Set<string>());
+  const auth=useAuth(),cloud=auth.status==='signed-in';const versions=useRef<Record<string,number>>({});const [error,setError]=useState<string|null>(null),[ready,setReady]=useState(!cloud);const saving=useRef(false);
+  useEffect(()=>{if(!cloud)return;let active=true;(async()=>{try{const data=await accountRequest<{drafts:{case_id:string;version:number;case_version:number;subject:string;body:string}[]}>('/drafts');const entries=await Promise.all(data.drafts.map(async d=>{const view=await loadCase(d.case_id);const snapshot=structuredClone(view);snapshot.detail.case.version=d.case_version;const session:ComplaintSession={...newComplaintSession(view),subject:d.subject,body:d.body,snapshot,snapshotSelection:newComplaintSession(view).selection,usedEvidenceIds:view.detail.evidence.map(e=>e.id),stage:'draft',dirty:false,needsRefresh:view.detail.case.version!==d.case_version};return [d.case_id,{caseId:d.case_id,company:view.row.company,title:view.row.title,subject:d.subject,session},d.version] as const;}));if(active){setSaved(Object.fromEntries(entries.map(([id,saved])=>[id,saved])));versions.current=Object.fromEntries(entries.map(([id,,v])=>[id,v]));setReady(true);}}catch{if(active)setError('Saved cloud drafts could not be loaded. Reload before saving a replacement.');}})();return()=>{active=false;};},[cloud]);
   const update=useCallback((id:string,change:(prior:ComplaintSession|undefined)=>ComplaintSession)=>setSessions(previous=>removed.current.has(id) ? previous : {...previous,[id]:change(previous[id])}),[]);
-  function save(id:string){const session=sessions[id];if(!session?.snapshot)return;setSaved(previous=>({...previous,[id]:{caseId:id,company:session.snapshot!.row.company,title:session.snapshot!.row.title,subject:session.subject,session:structuredClone({...session,dirty:false,busy:false})}}));update(id,previous=>({...previous!,dirty:false}));}
+  async function save(id:string){const session=sessions[id];if(!session?.snapshot)return;if(saving.current)throw new Error('A draft is already being saved.');if(cloud&&!ready)throw new Error('Reload to load your saved cloud drafts first.');saving.current=true;try{if(cloud){const result=await accountRequest<{version:number}>(`/drafts/${encodeURIComponent(id)}`,{expected_version:versions.current[id] ?? 0,case_version:session.snapshot.detail.case.version,subject:session.subject,body:session.body},'PUT');versions.current[id]=result.version;}setSaved(previous=>({...previous,[id]:{caseId:id,company:session.snapshot!.row.company,title:session.snapshot!.row.title,subject:session.subject,session:structuredClone({...session,dirty:false,busy:false})}}));update(id,previous=>({...previous!,dirty:previous?.subject!==session.subject || previous?.body!==session.body}));setError(null);}finally{saving.current=false;}}
   function remove(id:string){removed.current.add(id);setSessions(previous=>{const next={...previous};delete next[id];return next;});setSaved(previous=>{const next={...previous};delete next[id];return next;});}
-  const hasWork=Object.values(sessions).some(s=>Boolean(s.body) || s.dirty || s.busy);
+  const hasWork=Object.values(sessions).some(s=>s.dirty || s.busy);
   useEffect(()=>{if(!hasWork)return;const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[hasWork]);
-  return <Context.Provider value={{sessions,saved,update,save,remove}}>{children}</Context.Provider>;
+  return <Context.Provider value={{sessions,saved,update,save,remove,error,ready}}>{children}</Context.Provider>;
 }
 export function useComplaints(){const value=useContext(Context);if(!value)throw new Error('ComplaintsProvider is required');return value;}

@@ -12,3 +12,4 @@ storage/
 *.tsbuildinfo
 .ocr-models/
 *.log
+deploy/account-auth.env

@@ -39,7 +39,9 @@ import time
 import uuid
 import os
 from typing import Optional, Tuple
-from fastapi import Request, HTTPException, status
+from fastapi import Request, HTTPException, status, Depends
+from sqlalchemy.orm import Session
+from backend.app.core.database import get_db
 from pydantic import BaseModel
 from backend.app.core.config import settings
 
@@ -83,6 +85,10 @@ class SessionData(BaseModel):
     user_id: str
     csrf_token: str
     is_authenticated: bool = True
+    email: Optional[str] = None
+    display_name: str = ""
+    mfa_enabled: bool = False
+    auth_time: Optional[int] = None
 
 
 def sign_session_token(session_id: str, user_id: str, timestamp: int) -> str:
@@ -150,12 +156,15 @@ def create_authenticated_session(user_id: str = "demo-user") -> Tuple[str, str]:
     return token, csrf
 
 
-def get_current_session(request: Request) -> SessionData:
+def get_current_session(request: Request, db: Session = Depends(get_db)) -> SessionData:
     """
     Extracts and cryptographically validates session identity.
     Enforces CSRF on cookie-authenticated mutating requests (POST).
     Rejects anonymous and forged requests with HTTP 401 UNAUTHENTICATED.
     """
+    if settings.AUTH_PROVIDER == "firebase":
+        from backend.app.services.account_auth import current_account_session
+        return current_account_session(request, db)
     raw_token: Optional[str] = None
     is_cookie_auth = False
 

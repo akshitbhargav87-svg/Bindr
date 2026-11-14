@@ -9,6 +9,15 @@ if [[ ! "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]] || [[ ! "$REGION" =~ 
   exit 2
 fi
 command -v gcloud >/dev/null
+# The owner completes provider setup once; runtime web config remains public.
+if [ -f deploy/account-auth.env ]; then
+  source deploy/account-auth.env
+fi
+: "${FIREBASE_PROJECT_ID:?Complete docs/AUTHENTICATION.md before deploying account authentication}"
+: "${FIREBASE_API_KEY:?Missing Firebase web API key}"
+: "${FIREBASE_AUTH_DOMAIN:?Missing Firebase auth domain}"
+: "${FIREBASE_APP_ID:?Missing Firebase web app ID}"
+test "$FIREBASE_PROJECT_ID" = "$PROJECT_ID"
 test -f cloudbuild.yaml
 test -f Dockerfile
 RUNTIME_SA="bindr-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -35,7 +44,7 @@ gcloud run deploy bindr --project="$PROJECT_ID" --region="$REGION" \
   --min=0 --max=1 --max-instances=1 --concurrency=4 --timeout=300 \
   --allow-unauthenticated --set-cloudsql-instances="$CONNECTION" \
   --startup-probe='httpGet.path=/health,httpGet.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=24' \
-  --set-env-vars="ENVIRONMENT=production,EVIDENCE_STORAGE_BACKEND=gcs,EVIDENCE_GCS_BUCKET=${BUCKET},AI_PROVIDER=meta,META_MODEL=${META_MODEL:-muse-spark-1.3},META_BASE_URL=${META_BASE_URL:-https://api.meta.ai/v1},META_TIMEOUT=45,SESSION_LIFETIME_SECONDS=2592000" \
+  --set-env-vars="ENVIRONMENT=production,EVIDENCE_STORAGE_BACKEND=gcs,EVIDENCE_GCS_BUCKET=${BUCKET},AI_PROVIDER=meta,META_MODEL=${META_MODEL:-muse-spark-1.3},META_BASE_URL=${META_BASE_URL:-https://api.meta.ai/v1},META_TIMEOUT=45,SESSION_LIFETIME_SECONDS=2592000,AUTH_PROVIDER=firebase,ACCOUNT_SESSION_SECONDS=432000,FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID},FIREBASE_API_KEY=${FIREBASE_API_KEY},FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN},FIREBASE_APP_ID=${FIREBASE_APP_ID}" \
   --set-secrets='AUTH_SECRET=bindr-auth-secret:1,DATABASE_URL=bindr-database-url:1,MODEL_API_KEY=bindr-model-api-key:1'
 
 SERVICE_URL="$(gcloud run services describe bindr --project="$PROJECT_ID" --region="$REGION" --format='value(status.url)')"

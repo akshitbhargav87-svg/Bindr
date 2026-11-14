@@ -29,3 +29,20 @@ Documented settings represent the actual configuration contract for the Bindr ba
 * **Upload Limits:** The upload size limit is 10 MiB (`MAX_UPLOAD_SIZE_BYTES = 10485760`). Maximum extraction text length is 50,000 characters.
 * **Format Validation:** Files are validated using binary magic bytes (PNG, JPEG, PDF, UTF-8 text) to prevent disguised uploads.
 * **Integrity & Immutability:** Stored files are written with random UUID keys (`<evidence_id>.bin`) and SHA-256 hashed upon ingestion. Original evidence files are never modified, compressed, or overwritten.
+
+
+## Managed account authentication
+
+See [AUTHENTICATION.md](AUTHENTICATION.md) for owner setup and acceptance. Deployed environments require `AUTH_PROVIDER=firebase`. Development defaults to the anonymous fixture workspace; that mode is rejected in production/staging.
+
+| Variable | Purpose |
+|---|---|
+| AUTH_PROVIDER | `firebase` for account access; `anonymous` only for local development and legacy tests |
+| FIREBASE_PROJECT_ID | Existing Google project holding the identity service |
+| FIREBASE_API_KEY | Public Firebase web API identifier, served at `/api/v1/auth/config` |
+| FIREBASE_AUTH_DOMAIN | Public Firebase OAuth handler domain |
+| FIREBASE_APP_ID | Public Firebase web app ID |
+| ACCOUNT_SESSION_SECONDS | Default 432000 (five days); capped at 14 days |
+| AUTH_SECRET | Existing random server secret for session-bound CSRF and legacy-workspace attachment; keep it during migration |
+
+The Cloud Run service identity needs `firebaseauth.users.get` and `firebaseauth.users.update`; the owner setup script creates the narrow runtime role. Never ship a service-account private key, password or provider refresh token in frontend configuration. Emulator auth is forbidden in deployed environments.

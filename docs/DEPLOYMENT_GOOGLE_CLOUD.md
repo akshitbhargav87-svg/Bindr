@@ -1,5 +1,7 @@
 # Deploy Bindr on Google Cloud
 
+> Account deployment requires Akshit to complete [Firebase/Identity Platform setup](AUTHENTICATION.md) first. The existing database, bucket and signing secret are retained.
+
 **Cloud Run** hosts the connected frontend/API. **Cloud SQL PostgreSQL** stores records. **Private Cloud Storage** keeps original evidence. **Secret Manager** holds credentials. The existing Meta API provider stays in place; this does not switch AI to Gemini or Vertex AI.
 
 The judging deployment is live at https://bindr-404714938412.asia-south1.run.app. See [live acceptance results](LIVE_ACCEPTANCE.md). The one-time setup below is for recreating the deployment; for the existing resources use the update instructions. No data was imported from Render or SQLite. The supplied Console screenshot identifies **My First Project**, ID `project-0021b03b-28bd-43e6-9d4`; the commands below use that project.

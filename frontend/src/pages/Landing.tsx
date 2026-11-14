@@ -5,6 +5,7 @@ import { Brand, Button } from '../components/ui';
 import ProductPreview from '../components/ProductPreview';
 import PromiseConversation from '../components/PromiseConversation';
 import { Reveal, useReadingProgress } from '../components/LandingMotion';
+import { useAuth } from '../state/Auth';
 
 const faqs = [
   ['What can I keep track of?', 'Refunds, replacements, deliveries, service credits, or another clear company commitment. Start with the message containing the promise, then review its details before tracking it.'],
@@ -25,6 +26,7 @@ function InfoDialog({page, close}: {page: InfoPage; close: () => void}) {
   return <dialog ref={ref} className="info-dialog" onCancel={close} onClick={e => {if (e.target === e.currentTarget) close();}} aria-labelledby="info-title"><div className="dialog-top"><span className="eyebrow">{page}</span><Button variant="text" onClick={close} aria-label="Close dialog"><X size={20}/></Button></div><h2 id="info-title">{info[page].title}</h2>{info[page].paragraphs.map(p => <p key={p}>{p}</p>)}<Button variant="secondary" onClick={close}>Close</Button></dialog>;
 }
 export default function Landing() {
+  const account=useAuth();
   const [menu, setMenu] = useState(false);
   const [dialog, setDialog] = useState<InfoPage | null>(null);
   const progress = useReadingProgress();
@@ -45,7 +47,7 @@ export default function Landing() {
           <a href="#your-record" onClick={() => setMenu(false)}>Why Bindr</a>
           <a href="#questions" onClick={() => setMenu(false)}>FAQs</a>
         </nav>
-        <Link className="header-cta" to="/app">Open workspace <ArrowUpRight size={18}/></Link>
+        <Link className="header-cta" to={account.status==='signed-out' ? '/login' : '/app'}>{account.status==='signed-out' ? 'Sign in' : 'Open workspace'} <ArrowUpRight size={18}/></Link>
         <button className="menu-toggle" aria-expanded={menu} aria-controls="mobile-menu" aria-label={menu ? 'Close menu' : 'Open menu'} onClick={() => setMenu(!menu)}>{menu ? <X/> : <Menu/>}</button>
       </div>
     </header>

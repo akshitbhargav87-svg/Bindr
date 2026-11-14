@@ -40,6 +40,12 @@ class Settings(BaseModel):
     AUTH_SECRET: Optional[str] = os.getenv("AUTH_SECRET", None)
     SESSION_LIFETIME_SECONDS: int = int(os.getenv("SESSION_LIFETIME_SECONDS", "86400"))
     CLOCK_SKEW_TOLERANCE_SECONDS: int = int(os.getenv("CLOCK_SKEW_TOLERANCE_SECONDS", "60"))
+    AUTH_PROVIDER: str = os.getenv("AUTH_PROVIDER", "firebase" if os.getenv("ENVIRONMENT", "development").lower() in {"production", "prod", "staging", "deployed"} else "anonymous")
+    FIREBASE_PROJECT_ID: str = os.getenv("FIREBASE_PROJECT_ID", "")
+    FIREBASE_API_KEY: str = os.getenv("FIREBASE_API_KEY", "")
+    FIREBASE_AUTH_DOMAIN: str = os.getenv("FIREBASE_AUTH_DOMAIN", "")
+    FIREBASE_APP_ID: str = os.getenv("FIREBASE_APP_ID", "")
+    ACCOUNT_SESSION_SECONDS: int = int(os.getenv("ACCOUNT_SESSION_SECONDS", "432000"))
 
 
 settings = Settings()

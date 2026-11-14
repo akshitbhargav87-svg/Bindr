@@ -1,10 +1,12 @@
 from fastapi import APIRouter
 from backend.app.api.endpoints import health, auth, cases, commitments, evidence, timeline, extractions
+from backend.app.api.endpoints import accounts
 
 api_router = APIRouter()
 
 # Auth session bootstrap
 api_router.include_router(auth.router)
+api_router.include_router(accounts.router)
 
 # Health endpoints
 api_router.include_router(health.router)

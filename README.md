@@ -6,7 +6,7 @@
 
 Companies promise refunds, replacements and service fixes across messages and documents. When dates change, the proof gets scattered. Bindr keeps the original evidence, confirmed terms, revisions and outcome in one place.
 
-> Live on Google Cloud. The deployed API lifecycle, real Meta extraction, screenshot OCR, private original downloads and workspace isolation have passed with synthetic evidence. Saved records and exact original files also survived a redeploy. See [live acceptance](docs/LIVE_ACCEPTANCE.md) for the checks and MVP limits.
+> The existing MVP is live on Google Cloud. This account-authentication update requires the project-owner setup and live checks in [the authentication guide](docs/AUTHENTICATION.md) before deployment. The deployed API lifecycle, real Meta extraction, screenshot OCR, private original downloads and workspace isolation have passed with synthetic evidence. Saved records and exact original files also survived a redeploy. See [live acceptance](docs/LIVE_ACCEPTANCE.md) for the checks and MVP limits.
 
 ## Try the story
 
@@ -35,9 +35,9 @@ Example message: **“We will refund INR 4999 for the returned headphones within
 
 ## How it is built
 
-**React 19 · TypeScript · Vite · FastAPI · SQLAlchemy · PostgreSQL · RapidOCR · Meta Model API · Google Cloud**
+**React 19 · TypeScript · Vite · FastAPI · SQLAlchemy · PostgreSQL · RapidOCR · Meta Model API · Google Cloud · Firebase Authentication**
 
-The browser calls `/api/v1` with signed session cookies and CSRF protection. FastAPI validates files and AI output, checks ownership and atomically applies reviewed changes. Provider secrets stay on the server. Complaints are generated from confirmed facts; nothing is automatically sent or filed.
+The browser calls `/api/v1` with revocable HttpOnly account-session cookies and CSRF protection. FastAPI validates files and AI output, checks ownership and atomically applies reviewed changes. Provider secrets stay on the server. Complaints are generated from confirmed facts; nothing is automatically sent or filed.
 
 The Meta adapter extracts one primary promise per source file. A missing or ambiguous date remains unset until the user confirms it. OCR and AI can make mistakes; source-linked human review is required.
 
@@ -60,13 +60,13 @@ Open **http://127.0.0.1:8000**. Local mode uses SQLite and a clearly labelled of
 
 ## Deploy
 
-Follow the [Google Cloud deployment guide](docs/DEPLOYMENT.md): Cloud Run serves the app, Cloud SQL stores records, Cloud Storage keeps private originals and Secret Manager holds credentials. The [deploy script](scripts/deploy-google-cloud.sh) builds and publishes Docker after one-time project setup. The existing AI provider is unchanged. The live judging URL is linked above; deployment remains manual.
+Follow the [Google Cloud deployment guide](docs/DEPLOYMENT.md): Cloud Run serves the app, Cloud SQL stores records, Cloud Storage keeps private originals and Secret Manager holds credentials. The [deploy script](scripts/deploy-google-cloud.sh) builds and publishes Docker after one-time project setup. The existing AI provider is unchanged. Account deployment first requires [Firebase/Identity Platform setup](docs/AUTHENTICATION.md). The live judging URL is linked above; deployment remains manual.
 
 ## Scope and limits
 
-This is an anonymous browser workspace: the cookie holds access for up to 30 days in the deployment configuration. Clearing/losing it loses access; account recovery and cross-device login are not implemented. Use synthetic evidence for judging.
+Account mode supports Google and verified email/password sign-in, password-reset links and optional authenticator-app two-factor authentication. Passwords and second-factor secrets are managed by Google Identity Platform. Saved cases, originals, complaint wording, preferences and read markers stay in the cloud and follow the account across devices. Unsaved edits remain in browser memory. Existing anonymous records can be attached once from a browser that still holds its valid old cookie. See [owner setup, security boundaries and recovery limits](docs/AUTHENTICATION.md). Use synthetic evidence for judging.
 
-Full resolution and reviewed revisions persist. Partial receipts, manual-only saving, reopen/archive/delete, persistent complaint drafts, notification delivery and scanned-PDF OCR are outside the connected MVP. Settings affect local presentation; there are no background reminders. Uploads are limited to 10 MiB each, 30 files per case and 50 MiB per workspace; extraction has a basic abuse limit.
+Full resolution and reviewed revisions persist. Partial receipts, manual-only saving, reopen/archive/delete, notification delivery and scanned-PDF OCR are outside the connected MVP. Saved account drafts/preferences are cloud-backed; there are no background reminders. Uploads are limited to 10 MiB each, 30 files per case and 50 MiB per workspace; extraction has a basic abuse limit.
 
 ## Team and verification
 
