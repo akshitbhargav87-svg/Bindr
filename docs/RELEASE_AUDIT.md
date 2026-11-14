@@ -1,6 +1,6 @@
 # Combined release audit — 14 November 2026
 
-> This records the original integrated release. Hosting now targets Google Cloud; see the [migration audit](GOOGLE_CLOUD_MIGRATION.md) and [deployment guide](DEPLOYMENT.md). Historical Render evidence below is preserved.
+> This records the original integrated release. Hosting now targets Google Cloud; see the [migration audit](GOOGLE_CLOUD_MIGRATION.md) and [deployment guide](DEPLOYMENT.md). Historical Render evidence below is preserved. The subsequent Google deployment and real-provider checks are recorded in [live acceptance](LIVE_ACCEPTANCE.md).
 
 ## Result
 

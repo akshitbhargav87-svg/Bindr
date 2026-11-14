@@ -34,7 +34,7 @@ gcloud run deploy bindr --project="$PROJECT_ID" --region="$REGION" \
   --execution-environment=gen2 --port=8080 --cpu=1 --memory=2Gi \
   --min=0 --max=1 --max-instances=1 --concurrency=4 --timeout=300 \
   --allow-unauthenticated --set-cloudsql-instances="$CONNECTION" \
-  --startup-probe='httpGet.path=/healthz,httpGet.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=24' \
+  --startup-probe='httpGet.path=/health,httpGet.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=24' \
   --set-env-vars="ENVIRONMENT=production,EVIDENCE_STORAGE_BACKEND=gcs,EVIDENCE_GCS_BUCKET=${BUCKET},AI_PROVIDER=meta,META_MODEL=${META_MODEL:-muse-spark-1.3},META_BASE_URL=${META_BASE_URL:-https://api.meta.ai/v1},META_TIMEOUT=45,SESSION_LIFETIME_SECONDS=2592000" \
   --set-secrets='AUTH_SECRET=bindr-auth-secret:1,DATABASE_URL=bindr-database-url:1,MODEL_API_KEY=bindr-model-api-key:1'
 

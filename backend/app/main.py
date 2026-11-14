@@ -145,6 +145,7 @@ async def private_response_headers(request: Request, call_next):
     return response
 
 
+@app.get("/health", include_in_schema=False)
 @app.get("/healthz", include_in_schema=False)
 def readiness():
     with engine.connect() as connection:

@@ -1,5 +1,7 @@
 # Google Cloud migration status
 
+> Update, 15 November 2026 (IST): the user deployed Google Cloud successfully. Real Meta extraction, screenshot OCR, the API lifecycle, secure cookies and private access checks passed. See [live acceptance](LIVE_ACCEPTANCE.md); the migration preparation record below is preserved.
+
 ## Recovered task
 
 The interrupted chat had already merged the integrated release into `main` at `69134f2`. Its final request was to switch hosting from Render to Google Cloud while retaining the current AI provider and leaving the actual cloud deployment to the user. The interrupted `deploy/google-cloud` branch had not been pushed. This continuation starts from the merged release in a separate `codex/google-cloud` checkout, preserving the existing frontend checkout and all contributor history.
