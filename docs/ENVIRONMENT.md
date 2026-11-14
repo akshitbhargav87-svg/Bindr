@@ -1,24 +1,30 @@
-# Environment configuration — MVP proposal
+# Environment configuration — Reference
 
-Documented names are the shared implementation contract. No root configuration file or real credentials are created in Milestone 1. Backend validates required settings at startup and keeps secrets server-side. Do not commit `.env` files or print values.
+Documented settings represent the actual configuration contract for the Bindr backend and AI modules. Backend validates required settings at startup and keeps secrets strictly server-side. Do not commit `.env` files or log secret values.
 
-| Variable | Consumer | Required / example and meaning |
+| Variable | Consumer | Required / Example and Meaning |
 |---|---|---|
-| `DATABASE_URL` | Backend | Required; `postgresql://promise:LOCAL_ONLY@localhost:5432/promise_keeper`; use deployment secret with TLS remotely |
-| `AI_PROVIDER` | Backend AI | Required; `stub` locally/tests, `openai` proposed production adapter |
-| `AI_API_KEY` | Backend AI | Required only for live provider; secret, never frontend-prefixed |
-| `AI_MODEL` | Backend AI | Required live-provider model identifier, selected by AI owner; no assumed model default |
-| `AI_TIMEOUT_SECONDS` | Backend AI | `45` default; align proxy timeout above it |
-| `APP_TIMEZONE` | Backend | `Asia/Kolkata` proposed default for explicitly interpretable evidence; never silently resolve ambiguous dates |
-| `EVIDENCE_STORAGE_DRIVER` | Backend | Required: `local` or `s3` |
-| `EVIDENCE_LOCAL_DIR` | Backend | Required for local; absolute private persistent directory outside frontend/public/static roots |
-| `EVIDENCE_S3_ENDPOINT` | Backend | Optional S3-compatible HTTPS endpoint; absent uses provider default |
-| `EVIDENCE_S3_REGION` | Backend | Required for s3 |
-| `EVIDENCE_S3_BUCKET` | Backend | Required for s3; private bucket with public access blocked |
-| `EVIDENCE_S3_ACCESS_KEY_ID` | Backend | Required for s3 unless workload identity configured; secret |
-| `EVIDENCE_S3_SECRET_ACCESS_KEY` | Backend | Same requirement as access key; secret |
-| `FRONTEND_API_BASE_URL` | Frontend build | Public setting; `/api/v1` for same origin or `http://localhost:8000/api/v1` for development. Frontend owner maps to framework build configuration without renaming the shared logical setting |
-| `FRONTEND_ORIGIN` | Backend | Required origin for CORS/CSRF; e.g. `http://localhost:5173`; no wildcard with cookies |
-| `SESSION_SECRET` | Backend | Required secret for signed session, at least 32 random bytes; never use example credentials in staging |
+| `DATABASE_URL` | Backend | `sqlite:///./promise_keeper.db` for local development; `postgresql://user:pass@host:5432/dbname` (with TLS) for Cloud Run / Render production deployments. |
+| `ENVIRONMENT` | Backend | Application environment: `development` (default), `production`, or `staging`. Deployed environments enforce strict signing secrets and HTTPS-only cookies. |
+| `AUTH_SECRET` | Backend | Required HMAC-SHA256 session signing secret. In deployed environments (`production`, `staging`), must be at least 32 characters long; predictable/default keys are strictly forbidden at startup. |
+| `SESSION_LIFETIME_SECONDS` | Backend | Session expiration window in seconds (default: `86400` / 24 hours). Validates `iat` and `exp` claims with rejection of expired or future-dated sessions. |
+| `CLOCK_SKEW_TOLERANCE_SECONDS` | Backend | Allowable clock skew for session timestamp verification (default: `60` seconds). |
+| `CORS_ORIGINS` | Backend | Comma-delimited list of allowed frontend origins (default: `http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173`). Wildcards (`*`) are disallowed when credentials are enabled. |
+| `FRONTEND_ORIGIN` | Backend | Explicit frontend origin appended to allowed CORS and CSRF origin check (e.g. `http://localhost:5173` or production domain). |
+| `RENDER_EXTERNAL_URL` | Backend | Same-origin external URL automatically populated on Render deployments. |
+| `FRONTEND_DIST_DIR` | Backend | Filesystem path to built frontend static assets for single-origin serving (default: `frontend/dist`). |
+| `EVIDENCE_STORAGE_BACKEND` | Backend | Evidence storage driver: `local` (default) or `gcs` (production). |
+| `EVIDENCE_STORAGE_DIR` | Backend | Absolute filesystem path for local evidence storage (default: `<cwd>/storage/evidence`). Must be private and outside public web roots. |
+| `EVIDENCE_GCS_BUCKET` | Backend | Google Cloud Storage bucket name for private evidence storage. Required when `EVIDENCE_STORAGE_BACKEND=gcs`. Accessed via Cloud Run service account identity with uniform bucket access and public access prevention enabled. |
+| `AI_PROVIDER` | Backend AI | Promise extraction provider: `meta` (live Meta Model API) or `mock` (deterministic local test fixtures). Defaults to `meta` when credentials are present. |
+| `MODEL_API_KEY` | Backend AI | Secret API key for Meta Model API. Required when `AI_PROVIDER=meta`. |
+| `META_MODEL` | Backend AI | Model identifier for extraction engine (default: `muse-spark-1.3`). |
+| `META_BASE_URL` | Backend AI | Base URL endpoint for Meta Model API (default: `https://api.meta.ai/v1`). |
+| `OCR_MODEL_DIR` | Backend AI | Optional directory path for prewarmed RapidOCR PP-OCRv4 ONNX model weights. |
 
-Use backend-mediated evidence downloads even with S3; do not create public object URLs. Upload limit (10 MiB) and extraction text limit (50,000 characters) are fixed contract constants for MVP. Agree session integration, runtime and provider before implementing their setup. Configure test database/storage independently from staging; fixtures contain synthetic content only.
+## Storage & Security Invariants
+
+* **Private Evidence Access:** All evidence downloads are backend-mediated via `GET /api/v1/cases/{case_id}/evidence/{evidence_id}/content`. Neither public object URLs nor signed URLs are ever generated. Downloads enforce `Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`.
+* **Upload Limits:** The upload size limit is 10 MiB (`MAX_UPLOAD_SIZE_BYTES = 10485760`). Maximum extraction text length is 50,000 characters.
+* **Format Validation:** Files are validated using binary magic bytes (PNG, JPEG, PDF, UTF-8 text) to prevent disguised uploads.
+* **Integrity & Immutability:** Stored files are written with random UUID keys (`<evidence_id>.bin`) and SHA-256 hashed upon ingestion. Original evidence files are never modified, compressed, or overwritten.
