@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ArrowUpRight, Check, FileCheck2, FileText, FolderOpen, Link2, Menu, Minus, Plus, ScanLine, ShieldCheck, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Check, FileCheck2, FileText, History, Link2, Menu, Minus, Plus, ScanLine, ShieldCheck, X } from 'lucide-react';
 import { Brand, Button } from '../components/ui';
 import ProductPreview from '../components/ProductPreview';
-import RecordIllustration from '../components/RecordIllustration';
+import PromiseConversation from '../components/PromiseConversation';
+import { Reveal, useReadingProgress } from '../components/LandingMotion';
 
 const faqs = [
   ['What can I keep track of?', 'Refunds, replacements, deliveries, service credits, or another clear company commitment. Start with the message containing the promise, then review its details before tracking it.'],
@@ -14,7 +15,7 @@ const faqs = [
 ];
 type InfoPage = 'Privacy' | 'Terms' | 'Contact';
 const info: Record<InfoPage, {title: string; paragraphs: string[]}> = {
-  Privacy: {title: 'Your evidence deserves a clear explanation.', paragraphs: ['This is a development build. The landing-page example uses fictional companies and synthetic messages.', 'Live extraction is designed to run through the backend, which supplies selected evidence text to its configured AI provider. No AI provider credentials belong in the browser.', 'Retention, deletion and production privacy terms are not finalized. Use synthetic evidence while reviewing this build.']},
+  Privacy: {title: 'Your evidence deserves a clear explanation.', paragraphs: ['The refund conversation on this page is a sample scenario, not a report about a real transaction. Brand marks do not imply affiliation.', 'Live extraction is designed to run through the backend, which supplies selected evidence text to its configured AI provider. No AI provider credentials belong in the browser.', 'Retention, deletion and production privacy terms are not finalized. Use synthetic evidence while reviewing this build.']},
   Terms: {title: 'A record to help you take the next step.', paragraphs: ['Bindr is a consumer accountability tool under development. It is not a legal service and does not guarantee a refund, replacement or complaint outcome.', 'AI proposals need your review. A tracked promise is a record of the commitment you confirmed, not independent verification of the company’s conduct.', 'Complaint drafts are editable. Nothing is sent or filed by Bindr. Production terms will be published before a public launch.']},
   Contact: {title: 'Contact the Bindr team.', paragraphs: ['Bindr is being built for the VIHAAN X hackathon. A public support address has not been published yet.', 'For this development build, share questions or feedback directly with the team member who gave you access.']},
 };
@@ -26,22 +27,72 @@ function InfoDialog({page, close}: {page: InfoPage; close: () => void}) {
 export default function Landing() {
   const [menu, setMenu] = useState(false);
   const [dialog, setDialog] = useState<InfoPage | null>(null);
-  return <>
+  const progress = useReadingProgress();
+  useEffect(() => {
+    if (!menu) return;
+    const closeOnEscape = (event: KeyboardEvent) => {if (event.key === 'Escape') setMenu(false);};
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [menu]);
+  return <div className="landing">
     <a className="skip-link" href="#main">Skip to content</a>
-    <header className="site-header"><div className="container header-inner"><Link to="/" aria-label="Bindr home"><Brand/></Link><nav id="mobile-menu" className={menu ? 'main-nav is-open' : 'main-nav'} aria-label="Main navigation"><a href="#how-it-works" onClick={() => setMenu(false)}>How it works</a><a href="#your-record" onClick={() => setMenu(false)}>Your record</a><a href="#questions" onClick={() => setMenu(false)}>FAQs</a></nav><Link className="header-cta" to="/app">Open workspace <ArrowUpRight size={15}/></Link><button className="menu-toggle" aria-expanded={menu} aria-controls="mobile-menu" aria-label={menu ? 'Close menu' : 'Open menu'} onClick={() => setMenu(!menu)}>{menu ? <X/> : <Menu/>}</button></div></header>
+    <div className="reading-progress" ref={progress} aria-hidden="true"/>
+    <header className="site-header">
+      <div className="container header-inner">
+        <Link to="/" aria-label="Bindr home"><Brand/></Link>
+        <nav id="mobile-menu" className={menu ? 'main-nav is-open' : 'main-nav'} aria-label="Main navigation">
+          <a href="#how-it-works" onClick={() => setMenu(false)}>How it works</a>
+          <a href="#your-record" onClick={() => setMenu(false)}>Why Bindr</a>
+          <a href="#questions" onClick={() => setMenu(false)}>FAQs</a>
+        </nav>
+        <Link className="header-cta" to="/app">Open workspace <ArrowUpRight size={18}/></Link>
+        <button className="menu-toggle" aria-expanded={menu} aria-controls="mobile-menu" aria-label={menu ? 'Close menu' : 'Open menu'} onClick={() => setMenu(!menu)}>{menu ? <X/> : <Menu/>}</button>
+      </div>
+    </header>
     <main id="main">
-      <section className="hero container"><div className="hero-main"><div className="hero-copy"><div className="eyebrow"><span className="accent-line"/> A CLEAR RECORD. A STRONGER NEXT STEP.</div><h1>Keep companies'<br/>promises <span className="hero-underline">on record.</span></h1><p>They said they’d refund you. Replace it. Sort it out.<br className="desktop-break"/> Bindr keeps what was promised, when it’s due,<br className="desktop-break"/> and the evidence to back you up.</p><div className="hero-actions"><Link to="/app/upload" className="button button-primary">Track a promise <ArrowRight size={17}/></Link><a href="#product-preview" className="quiet-link">See the record <span>↓</span></a></div><div className="hero-note"><Check size={13}/> You confirm the facts. You choose the next step.</div></div><div className="hero-art"><div className="art-index mono">01 — THE EVIDENCE STAYS TOGETHER</div><RecordIllustration/><div className="art-caption"><span className="art-dot"/><span>Messages change.<br/><strong>Your record shouldn’t.</strong></span><span className="art-corner">↗</span></div></div></div>
-        <div className="promise-types"><span className="mono">ONE PLACE FOR THE FOLLOW-THROUGH</span><div><span>Refunds</span><span>Replacements</span><span>Deliveries</span><span>Service credits</span></div></div>
+      <section className="hero container">
+        <div className="hero-main">
+          <div className="hero-copy">
+            <span className="consumer-tag"><span/> For the follow-through.</span>
+            <h1 aria-label="Keep companies' promises on record."><span className="headline-line">Keep companies'</span><span className="headline-line">promises</span><span className="headline-line headline-accent">on record.<svg viewBox="0 0 390 15" aria-hidden="true"><path d="M4 10Q180 -1 386 7"/></svg></span></h1>
+            <p>The refund. The replacement. The date that moved.<br className="desktop-break"/> Keep what they promised—and the proof.</p>
+            <div className="hero-actions"><Link to="/app/upload" className="button button-primary">Track a promise <ArrowRight size={20}/></Link><a href="#product-preview" className="quiet-link">See the record <ArrowRight size={19}/></a></div>
+          </div>
+          <PromiseConversation/>
+        </div>
       </section>
-      <section className="product-section" aria-labelledby="record-heading"><div className="container"><div className="section-intro"><div><span className="eyebrow">FROM “WE PROMISE” TO A PAPER TRAIL</span><h2 id="record-heading">The whole story. On the record.</h2></div><p>A new deadline doesn’t erase the old one.<br/>Keep every promise beside the words that made it.</p></div><ProductPreview/><div className="preview-caption"><span><span className="caption-square"/> Click either promise to see its source.</span><span>Fictional company. Real workflow.</span></div></div></section>
-      <section className="how-section container" id="how-it-works"><div className="section-intro"><div><span className="eyebrow">LESS CHASING. MORE CLARITY.</span><h2>From a message to a clear next step.</h2></div><p>Bring the evidence.<br/>Keep control of the rest.</p></div><div className="steps-grid"><article className="step"><div className="step-heading"><span className="mono">01 / CAPTURE</span><ScanLine size={20}/></div><div className="mini-capture"><div className="mini-file"><FileText size={22}/><span>refund-confirmation.pdf<small>Original communication</small></span><Check size={14}/></div><div className="mini-paste"><span>“We will refund your payment…”</span><span className="mono">PASTED MESSAGE</span></div></div><h3>Add the evidence.</h3><p>Start with a company message or document. Keep the original attached to its promise.</p></article><article className="step"><div className="step-heading"><span className="mono">02 / CONFIRM</span><FileCheck2 size={20}/></div><div className="mini-fields"><div><span>Promised amount</span><strong>₹4,999</strong><Check size={13}/></div><div><span>Confirmed deadline</span><strong>9 Nov 2026</strong><Check size={13}/></div><span className="mini-quote">“within 5 business days” <Link2 size={12}/></span></div><h3>Confirm what was promised.</h3><p>Review the extracted details against the exact words. Nothing is tracked until you confirm it.</p></article><article className="step"><div className="step-heading"><span className="mono">03 / FOLLOW THROUGH</span><FolderOpen size={20}/></div><div className="mini-record"><div><span className="mini-dot"/>Original promise<span>09 NOV</span></div><div><span className="mini-dot"/>Revised deadline<span>12 NOV</span></div><div><span className="mini-dot outlined"/>Your next step<ArrowUpRight size={15}/></div></div><h3>Track it. Take the next step.</h3><p>See what’s due, record what happened, and prepare a complaint draft with the facts already in place.</p></article></div></section>
-      <section className="record-section container" id="your-record"><div className="record-statement"><span className="eyebrow">BUILT AROUND THE ORIGINAL</span><h2>“We’ll get back to you”<br/>isn’t the end of the story.</h2><p>A support chat here. An email there. A date that keeps moving. Bring the pieces together, without losing what was said first.</p><Link to="/app/upload" className="quiet-link">Start your record <ArrowRight size={16}/></Link></div><div className="record-principles">{[[Link2, 'Every promise has a source.', 'Exact quotations and original files stay connected to the commitment.'], [HistoryIcon, 'The original stays original.', 'Revised dates become a new entry. The earlier promise stays visible.'], [FileCheck2, 'You decide what’s fulfilled.', 'A company saying “done” isn’t the same as you receiving it.']].map(([Icon, title, body]) => {const Component = Icon as typeof Link2;return <div className="principle" key={String(title)}><Component size={20}/><div><h3>{title as string}</h3><p>{body as string}</p></div></div>;})}</div></section>
-      <section className="privacy-section"><div className="container privacy-inner"><div className="privacy-icon"><ShieldCheck size={32} strokeWidth={1.25}/><span className="mono">YOUR CALL.</span></div><div><span className="eyebrow">EVIDENCE IS PERSONAL</span><h2>A clear record. With you in control.</h2><p>You review extracted facts before tracking them. Complaint drafts stay editable, and nothing is sent or filed by Bindr.</p><button className="quiet-link" onClick={() => setDialog('Privacy')}>Read the development privacy note <ArrowUpRight size={15}/></button></div><div className="privacy-facts"><span><Check size={15}/> Human-confirmed promises</span><span><Check size={15}/> Source-linked revisions</span><span><Check size={15}/> No automatic complaint filing</span></div></div></section>
-      <section className="faq-section container" id="questions"><div><span className="eyebrow">A FEW THINGS TO KNOW</span><h2>Clear answers.<br/>Before you start.</h2><p>It’s your evidence.<br/>You should know how this works.</p></div><div className="faq-list">{faqs.map(([q, a]) => <details key={q}><summary>{q}<Plus className="faq-plus" size={18}/><Minus className="faq-minus" size={18}/></summary><p>{a}</p></details>)}</div></section>
-      <section className="final-cta container"><div><span className="eyebrow">THE NEXT PROMISE, ON RECORD.</span><h2>Keep the promise.<br/>Keep the proof.</h2></div><div><Link to="/app/upload" className="button button-primary">Track a promise <ArrowRight size={17}/></Link><p>Start with the message you already have.</p></div><span className="cta-watermark" aria-hidden="true"><img src="/bindr-mark.svg" alt=""/></span></section>
+      <section className="product-section" aria-labelledby="record-heading">
+        <div className="container">
+          <Reveal><div className="section-intro"><div><span className="section-kicker">The whole story, together.</span><h2 id="record-heading">A moving deadline shouldn’t<br/><span>mean starting from scratch.</span></h2></div><p>The original stays. The new date joins it.<br/>Every promise links back to their words.</p></div></Reveal>
+          <Reveal><ProductPreview/></Reveal>
+        </div>
+      </section>
+      <section className="how-section container" id="how-it-works">
+        <Reveal><div className="section-intro"><div><span className="section-kicker">Three steps. A little less chasing.</span><h2>From “we promise”<br/>to a clear next step.</h2></div><p>Start with the message<br/>you already have.</p></div></Reveal>
+        <div className="steps-grid">
+          <Reveal className="step" delay={0}><article><div className="step-art capture-art"><span className="step-number">1</span><div className="capture-document"><FileText size={28}/><strong>Your refund confirmation</strong><span>Original communication</span><div className="document-lines"><i/><i/><i/></div><span className="attachment-tag"><Check size={14}/> Evidence attached</span></div><span className="floating-format">PDF</span><span className="floating-format second">Message</span></div><h3>Add the evidence.</h3><p>Bring the company’s message or document. Keep the original with its promise.</p></article></Reveal>
+          <Reveal className="step" delay={100}><article><div className="step-art confirm-art"><span className="step-number">2</span><div className="confirmation-form"><span>Promised amount</span><strong>₹4,999 <Check size={19}/></strong><div/><span>Confirmed deadline</span><strong>9 Nov 2026 <Check size={19}/></strong><span className="confirmed-tag"><FileCheck2 size={16}/> Reviewed by you</span></div></div><h3>Give it your okay.</h3><p>Check the details against the exact words. You confirm what gets tracked.</p></article></Reveal>
+          <Reveal className="step" delay={200}><article><div className="step-art follow-art"><span className="step-number">3</span><div className="follow-record"><div><span/><p>Original promise<small>Due 9 Nov</small></p><Check size={16}/></div><div><span/><p>Revised promise<small>Due 12 Nov</small></p><History size={16}/></div><div><span/><p>Your next step<small>All the facts, ready.</small></p><ArrowUpRight size={17}/></div></div></div><h3>Know your next step.</h3><p>Track the deadline, record the outcome, or prepare a complaint draft with evidence.</p></article></Reveal>
+        </div>
+      </section>
+      <section className="record-section container" id="your-record">
+        <Reveal className="people-visual"><figure><img className="everyday-photo" src="/media/everyday-phone.jpg" alt="A woman outdoors holding her phone" width="1000" height="667" loading="lazy"/></figure><div className="photo-note"><span className="proof-check"><Check size={21}/></span><p>One less thing<br/><strong>to keep in your head.</strong></p></div><span className="photo-spark" aria-hidden="true">✳</span></Reveal>
+        <Reveal className="record-statement"><span className="section-kicker">Built around your side of the story.</span><h2>They said it.<br/><span>You kept it.</span></h2><p>A support chat here. An email there. A date that keeps moving. Bring the pieces together, without losing what was said first.</p><div className="record-principles">{[
+          {Icon: Link2, title: 'Every promise has a source.', body: 'Exact words. Original files. Connected to the commitment.'},
+          {Icon: History, title: 'The original stays original.', body: 'A revised date adds to the history. It never replaces it.'},
+          {Icon: FileCheck2, title: 'You decide what’s fulfilled.', body: '“Refund sent” is a claim. You confirm when it arrives.'},
+        ].map(({Icon, title, body}) => <div className="principle" key={title}><Icon size={22}/><div><h3>{title}</h3><p>{body}</p></div></div>)}</div><Link to="/app/upload" className="quiet-link">Start your record <ArrowRight size={18}/></Link></Reveal>
+      </section>
+      <section className="everyday-brands container" aria-label="Illustrative company examples">
+        <Reveal><h2>A promise is a promise.<br/><span>Whoever it comes from.</span></h2><div className="brand-examples">{[
+          ['flipkart', 'Flipkart', 'Shopping'], ['swiggy', 'Swiggy', 'Food & groceries'], ['uber', 'Uber', 'Travel'], ['zomato', 'Zomato', 'Food delivery'],
+        ].map(([id, name, category]) => <div className={`brand-example brand-${id}`} key={id}><div className="company-brand"><img src={`/media/${id}.svg`} alt={`${name} logo`} width="40" height="40" loading="lazy"/>{id !== 'uber' && id !== 'zomato' && <span>{name}</span>}</div><span>{category}</span></div>)}</div><p className="brand-disclosure">Illustrative company examples. Bindr is independent and isn’t affiliated with these brands.</p></Reveal>
+      </section>
+      <section className="privacy-section"><div className="container"><Reveal className="privacy-inner"><div><span className="section-kicker"><ShieldCheck size={19}/> Evidence is personal.</span><h2>Your evidence.<br/><span>Your call.</span></h2><button className="quiet-link" onClick={() => setDialog('Privacy')}>Read the privacy note <ArrowUpRight size={18}/></button></div><div className="privacy-facts"><span><Check size={21}/> You review every extracted promise.</span><span><Check size={21}/> You decide when a case is fulfilled.</span><span><Check size={21}/> Nothing is sent or filed by Bindr.</span><p>Complaint drafts stay editable.<br/>The next step is always yours.</p></div></Reveal></div></section>
+      <section className="faq-section container" id="questions"><Reveal><span className="section-kicker">Before you start.</span><h2>Good<br/><span>questions.</span></h2><p>It’s your evidence.<br/>You should know how this works.</p></Reveal><Reveal className="faq-list">{faqs.map(([q, a]) => <details key={q}><summary>{q}<Plus className="faq-plus" size={22}/><Minus className="faq-minus" size={22}/></summary><p>{a}</p></details>)}</Reveal></section>
+      <section className="final-cta container"><Reveal><span className="section-kicker">The next promise, on record.</span><h2>Keep the promise.<br/><span>Keep the proof.</span></h2><div className="final-actions"><Link to="/app/upload" className="button button-primary">Track a promise <ArrowRight size={20}/></Link><p>Start with the message you already have.</p></div></Reveal><div className="cta-graphic" aria-hidden="true"><div className="cta-paper back"/><div className="cta-paper front"><img src="/bindr-mark.svg" alt=""/><span>Promise.<br/>Proof.<br/>Together.</span><Check size={26}/></div><span className="cta-star">✳</span></div></section>
     </main>
-    <footer className="site-footer container"><div><Link to="/" aria-label="Bindr home"><Brand/></Link><p>Promises change. The record stays.</p></div><div className="footer-links">{(['Contact', 'Privacy', 'Terms'] as const).map(page => <button key={page} onClick={() => setDialog(page)}>{page}</button>)}</div><span className="footer-meta mono">BUILT FOR EVERYDAY FOLLOW-THROUGH.<br/>© {new Date().getFullYear()} BINDR</span></footer>
+    <footer className="site-footer container"><div><Link to="/" aria-label="Bindr home"><Brand/></Link><p>Promises change. The record stays.</p></div><div className="footer-links">{(['Contact', 'Privacy', 'Terms'] as const).map(page => <button key={page} onClick={() => setDialog(page)}>{page}</button>)}</div><span className="footer-meta">Made for everyday follow-through.<br/>© {new Date().getFullYear()} Bindr</span></footer>
     {dialog && <InfoDialog page={dialog} close={() => setDialog(null)}/>}
-  </>;
+  </div>;
 }
-function HistoryIcon(props: {size?: number}) {return <svg width={props.size || 20} height={props.size || 20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.6 7M3 5v6h6M12 7v5l3 2"/></svg>;}

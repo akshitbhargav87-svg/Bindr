@@ -1,5 +1,7 @@
 # Bindr frontend
 
+The landing page has been revised to the approved consumer SVG direction: rounded self-hosted Nunito headings, larger body/product text, source-linked message artwork, licensed illustrative photography, labelled company examples and reduced-motion-aware animations. See LANDING-REVISION-HANDOVER.md for current validation and ASSETS.md for provenance. The earlier Phase 1 handover below is historical; app workflows still arrive in subsequent phases.
+
 Phase 1: React + Vite + TypeScript + Tailwind CSS. Inter and IBM Plex Mono are served locally through @fontsource. Lucide supplies interface icons. React Router owns public `/` and reserved `/app/*` routes.
 
 ## Run locally (PowerShell)
