@@ -16,6 +16,10 @@ class InvalidFileError(StorageError):
     pass
 
 
+class EvidenceNotFoundError(StorageError):
+    """The requested original is absent from private storage."""
+
+
 class FileTooLargeError(StorageError):
     """File exceeds allowed upload size."""
     pass
@@ -125,7 +129,7 @@ class LocalEvidenceStorage:
         if os.path.commonpath([full_path, os.path.abspath(self.base_dir)]) != os.path.abspath(self.base_dir):
             raise StorageError("Path traversal attempt detected.")
         if not os.path.exists(full_path):
-            raise StorageError(f"Evidence file {storage_key} not found on disk.")
+            raise EvidenceNotFoundError("Stored evidence file not found.")
         return full_path
 
     def read_file(self, storage_key: str) -> bytes:
@@ -146,4 +150,85 @@ class LocalEvidenceStorage:
         return False
 
 
-storage_service = LocalEvidenceStorage()
+class GCSEvidenceStorage:
+    """Private, immutable originals accessed with the Cloud Run service identity.
+
+    No public URLs, signed URLs, service-account key files or local cache are used.
+    The bucket is configured with uniform access and public access prevention.
+    """
+
+    def __init__(self, bucket_name: str, client=None):
+        if not bucket_name or not bucket_name.strip():
+            raise ValueError("EVIDENCE_GCS_BUCKET is required for GCS storage.")
+        self.bucket_name = bucket_name
+        self._client = client
+
+    def _blob(self, storage_key: str):
+        # Keys come from our evidence UUID, never an uploaded filename.
+        if not re.fullmatch(r"[0-9a-fA-F-]{36}\.bin", storage_key):
+            raise StorageError("Invalid evidence storage key.")
+        if self._client is None:
+            from google.cloud import storage
+            self._client = storage.Client()
+        return self._client.bucket(self.bucket_name).blob(storage_key)
+
+    def save_file(self, data: bytes, evidence_id: str) -> Tuple[str, str, int]:
+        if len(data) > settings.MAX_UPLOAD_SIZE_BYTES:
+            raise FileTooLargeError("File exceeds the evidence size limit.")
+        storage_key = f"{uuid.UUID(evidence_id)}.bin"
+        try:
+            blob = self._blob(storage_key)
+            blob.upload_from_string(
+                data, content_type="application/octet-stream",
+                if_generation_match=0, timeout=30,
+            )
+        except Exception as exc:
+            # Provider errors may contain bucket names, paths and request details.
+            raise StorageError("Could not save evidence to private storage.") from exc
+        return storage_key, hashlib.sha256(data).hexdigest(), len(data)
+
+    def read_file(self, storage_key: str) -> bytes:
+        from google.api_core.exceptions import NotFound
+        try:
+            blob = self._blob(storage_key)
+            blob.reload(timeout=30)
+            if blob.size is None or blob.size > settings.MAX_UPLOAD_SIZE_BYTES:
+                raise StorageError("Stored evidence exceeds the size limit.")
+            return blob.download_as_bytes(if_generation_match=blob.generation, timeout=30)
+        except NotFound as exc:
+            raise EvidenceNotFoundError("Stored evidence file not found.") from exc
+        except Exception as exc:
+            raise StorageError("Could not read evidence from private storage.") from exc
+
+    def delete_file(self, storage_key: str) -> bool:
+        """Best-effort compensation if recording a newly uploaded file fails."""
+        try:
+            blob = self._blob(storage_key)
+            blob.reload(timeout=30)
+            blob.delete(if_generation_match=blob.generation, timeout=30)
+            return True
+        except Exception:
+            return False
+
+
+def create_storage_service():
+    backend = settings.EVIDENCE_STORAGE_BACKEND
+    if backend == "local":
+        return LocalEvidenceStorage()
+    if backend == "gcs":
+        return GCSEvidenceStorage(settings.EVIDENCE_GCS_BUCKET)
+    raise ValueError("EVIDENCE_STORAGE_BACKEND must be local or gcs.")
+
+
+def validate_cloud_run_settings():
+    """Fail closed instead of losing records on an ephemeral Cloud Run instance."""
+    if os.getenv("K_SERVICE"):
+        if settings.ENVIRONMENT not in ("production", "prod"):
+            raise RuntimeError("Cloud Run requires ENVIRONMENT=production.")
+        if settings.EVIDENCE_STORAGE_BACKEND != "gcs" or not settings.EVIDENCE_GCS_BUCKET:
+            raise RuntimeError("Cloud Run requires private GCS evidence storage.")
+        if not settings.DATABASE_URL.startswith(("postgres://", "postgresql://", "postgresql+psycopg://")):
+            raise RuntimeError("Cloud Run requires persistent PostgreSQL records.")
+
+
+storage_service = create_storage_service()

@@ -21,6 +21,8 @@ class Settings(BaseModel):
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", os.getenv("ENV", "development"))
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./promise_keeper.db")
     STORAGE_DIR: str = os.getenv("EVIDENCE_STORAGE_DIR", os.path.join(os.getcwd(), "storage", "evidence"))
+    EVIDENCE_STORAGE_BACKEND: str = os.getenv("EVIDENCE_STORAGE_BACKEND", "local")
+    EVIDENCE_GCS_BUCKET: Optional[str] = os.getenv("EVIDENCE_GCS_BUCKET")
     MAX_UPLOAD_SIZE_BYTES: int = 10 * 1024 * 1024  # 10 MiB per API_CONTRACT
     ALLOWED_MIME_TYPES: List[str] = [
         "image/png",

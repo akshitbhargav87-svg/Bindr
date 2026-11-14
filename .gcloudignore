@@ -1,0 +1,19 @@
+# Keep credentials, originals, local databases and dependencies out of Cloud Build.
+.gcloudignore
+.git
+.venv/
+.ocr-models/
+storage/
+**/__pycache__/
+**/.pytest_cache/
+**/node_modules/
+**/dist/
+**/dist-http/
+**/.env
+**/.env.*
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+*.log
+work/
+outputs/

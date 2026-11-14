@@ -1,0 +1,2 @@
+# Docker entrypoints and Cloud Shell scripts must work from Windows checkouts too.
+*.sh text eol=lf

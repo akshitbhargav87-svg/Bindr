@@ -1,5 +1,7 @@
 # Combined release audit — 14 November 2026
 
+> This records the original integrated release. Hosting now targets Google Cloud; see the [migration audit](GOOGLE_CLOUD_MIGRATION.md) and [deployment guide](DEPLOYMENT.md). Historical Render evidence below is preserved.
+
 ## Result
 
 The assembled app passes local frontend, backend, AI/OCR and integration checks. The actual typed frontend adapter also completes the real FastAPI lifecycle. **Public deployment, PostgreSQL on Render, and the live Meta provider still need verification.** Local provider tests deliberately use an explicitly selected offline extractor or controlled provider responses; they are not evidence of paid live inference.

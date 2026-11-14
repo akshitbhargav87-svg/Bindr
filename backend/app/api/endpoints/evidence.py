@@ -1,7 +1,8 @@
 import uuid
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Response, Request
-from fastapi.responses import FileResponse
+from urllib.parse import quote
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -16,7 +17,7 @@ from backend.app.schemas.contract import (
 )
 from backend.app.services.storage import (
     storage_service, sanitize_filename, inspect_content_mime_type,
-    InvalidFileError, FileTooLargeError, StorageError
+    InvalidFileError, FileTooLargeError, StorageError, EvidenceNotFoundError
 )
 
 router = APIRouter(prefix="/cases/{case_id}/evidence", tags=["Evidence"])
@@ -101,7 +102,7 @@ async def upload_evidence(
 
     # Save to storage abstraction
     try:
-        storage_key, sha256_hash, size_bytes = storage_service.save_file(content, evidence_id)
+        storage_key, sha256_hash, size_bytes = await run_in_threadpool(storage_service.save_file, content, evidence_id)
     except FileTooLargeError as e:
         _api_error(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "FILE_TOO_LARGE", str(e))
     except StorageError as e:
@@ -136,14 +137,22 @@ async def upload_evidence(
         )
         db.add(timeline_entry)
 
-        db.commit()
-        db.refresh(evidence)
-        db.refresh(case)
-
-    except Exception as e:
+        # A rejected flush has not committed metadata, so compensation is safe.
+        db.flush()
+    except Exception:
         db.rollback()
-        storage_service.delete_file(storage_key)
+        await run_in_threadpool(storage_service.delete_file, storage_key)
         _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "DATABASE_ERROR", "Failed to record evidence.")
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        # A lost commit acknowledgement may mean SQL did commit. Preserve the
+        # original so a retry/reconciliation cannot encounter a dangling record.
+        _api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "DATABASE_ERROR", "Could not confirm the evidence save. Reload the case before retrying.")
+    db.refresh(evidence)
+    db.refresh(case)
 
     return {
         "evidence": EvidenceSchema.model_validate(evidence),
@@ -212,20 +221,21 @@ def get_evidence_content(
         _api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", f"Evidence {evidence_id} not found under case {case_id}.")
 
     try:
-        file_path = storage_service.get_file_path(evidence.storage_key)
-    except StorageError as e:
+        file_bytes = storage_service.read_file(evidence.storage_key)
+    except EvidenceNotFoundError:
         _api_error(status.HTTP_404_NOT_FOUND, "FILE_NOT_FOUND", "Stored evidence file not found.")
+    except StorageError:
+        _api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "STORAGE_ERROR", "Private evidence storage is temporarily unavailable.")
 
     safe_name = sanitize_filename(evidence.filename)
     headers = {
         "Cache-Control": "private, no-store",
-        "X-Content-Type-Options": "nosniff"
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(safe_name, safe='')}",
     }
 
-    return FileResponse(
-        path=file_path,
+    return Response(
+        content=file_bytes,
         media_type=evidence.media_type,
-        filename=safe_name,
-        content_disposition_type="attachment",
         headers=headers
     )

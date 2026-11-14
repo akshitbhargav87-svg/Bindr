@@ -40,10 +40,22 @@ def modules(source_root):
 def offline(monkeypatch, tmp_path):
     """Block paid requests/model downloads. RapidOCR must use installed model assets."""
     import socket
-    def denied(*args, **kwargs):
-        raise AssertionError('Regression suite forbids external network calls')
-    monkeypatch.setattr(socket.socket, 'connect', denied)
-    monkeypatch.setattr(socket.socket, 'connect_ex', denied)
+    from ipaddress import ip_address
+    original_connect = socket.socket.connect
+    original_connect_ex = socket.socket.connect_ex
+    def only_loopback(connect):
+        def guarded(sock, address):
+            # Windows implements asyncio's internal socketpair with loopback TCP.
+            # Permit that local transport while keeping all external calls denied.
+            try:
+                if isinstance(address, tuple) and ip_address(address[0]).is_loopback:
+                    return connect(sock, address)
+            except ValueError:
+                pass
+            raise AssertionError('Regression suite forbids external network calls')
+        return guarded
+    monkeypatch.setattr(socket.socket, 'connect', only_loopback(original_connect))
+    monkeypatch.setattr(socket.socket, 'connect_ex', only_loopback(original_connect_ex))
     monkeypatch.setenv('AI_PROVIDER', 'mock')
     monkeypatch.setenv('DATABASE_URL', 'sqlite:///' + str(tmp_path / 'bootstrap.sqlite'))
     monkeypatch.setenv('EVIDENCE_STORAGE_DIR', str(tmp_path / 'evidence'))

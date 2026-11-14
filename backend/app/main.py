@@ -16,12 +16,14 @@ from backend.app.core.config import settings
 from backend.app.core.database import Base, engine, run_sqlite_migrations
 from backend.app.api.router import api_router
 from backend.app.core.auth import get_auth_secret
+from backend.app.services.storage import validate_cloud_run_settings
 
 logger = logging.getLogger("backend.app.main")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_cloud_run_settings()
     get_auth_secret()  # Reject a weak or absent production signing key before serving traffic.
     # Initialize SQLite tables and run non-destructive schema migrations
     Base.metadata.create_all(bind=engine)

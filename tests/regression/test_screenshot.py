@@ -1,4 +1,6 @@
 import io
+import os
+from pathlib import Path
 import pytest
 from helpers import new_case, upload, extract, review, detail
 
@@ -8,10 +10,15 @@ def screenshot():
     Image = pytest.importorskip('PIL.Image', reason='PENDING: Pillow unavailable')
     from PIL import ImageDraw, ImageFont
     image = Image.new('RGB', (1100, 220), 'white')
-    try:
-        font = ImageFont.truetype('DejaVuSans.ttf', 26)
-    except OSError:
-        pytest.skip('PENDING: DejaVuSans.ttf unavailable; install the test font')
+    windows_font = str(Path(os.environ.get('WINDIR', 'C:/Windows')) / 'Fonts' / 'arial.ttf')
+    for font_name in ('DejaVuSans.ttf', windows_font):
+        try:
+            font = ImageFont.truetype(font_name, 26)
+            break
+        except OSError:
+            continue
+    else:
+        pytest.skip('PENDING: DejaVu Sans or Arial unavailable; install a test font')
     ImageDraw.Draw(image).multiline_text((30, 30), 'We will refund INR 150.00\nwithin 5 business days for order DEMO-42.', font=font, fill='black', spacing=16)
     buffer = io.BytesIO()
     image.save(buffer, format='PNG')  # No text metadata: recognition must read pixels.
