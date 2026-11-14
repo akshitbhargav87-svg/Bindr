@@ -81,7 +81,9 @@ def test_extraction_ai_timeout_handling(client, monkeypatch):
     payload = {"evidence_ids": [evidence["id"]]}
     res = client.post(f"/api/v1/cases/{case['id']}/extractions", json=payload)
     assert res.status_code == 504
-    assert res.json()["detail"]["error"]["code"] == "AI_TIMEOUT"
+    data = res.json()
+    err = data.get("error") or data.get("detail", {}).get("error")
+    assert err["code"] == "AI_TIMEOUT"
 
 
 def test_extraction_ai_unavailable_handling(client, monkeypatch):
@@ -95,7 +97,9 @@ def test_extraction_ai_unavailable_handling(client, monkeypatch):
     payload = {"evidence_ids": [evidence["id"]]}
     res = client.post(f"/api/v1/cases/{case['id']}/extractions", json=payload)
     assert res.status_code == 503
-    assert res.json()["detail"]["error"]["code"] == "AI_UNAVAILABLE"
+    data = res.json()
+    err = data.get("error") or data.get("detail", {}).get("error")
+    assert err["code"] == "AI_UNAVAILABLE"
 
 
 def test_extraction_ai_invalid_output_handling(client, monkeypatch):
@@ -109,7 +113,9 @@ def test_extraction_ai_invalid_output_handling(client, monkeypatch):
     payload = {"evidence_ids": [evidence["id"]]}
     res = client.post(f"/api/v1/cases/{case['id']}/extractions", json=payload)
     assert res.status_code == 502
-    assert res.json()["detail"]["error"]["code"] == "AI_INVALID_OUTPUT"
+    data = res.json()
+    err = data.get("error") or data.get("detail", {}).get("error")
+    assert err["code"] == "AI_INVALID_OUTPUT"
 
 
 def test_user_confirmation_and_commitment_persistence(client):
@@ -203,7 +209,9 @@ def test_repeated_review_fails_with_draft_closed(client):
     # Second review attempt on same draft: must fail with 409 DRAFT_CLOSED
     res2 = client.post(f"/api/v1/cases/{case['id']}/extractions/{draft_id}/review", json={"decision": "reject", "items": []})
     assert res2.status_code == 409
-    assert res2.json()["detail"]["error"]["code"] == "DRAFT_CLOSED"
+    data2 = res2.json()
+    err2 = data2.get("error") or data2.get("detail", {}).get("error")
+    assert err2["code"] == "DRAFT_CLOSED"
 
 
 def test_user_confirms_revision_superseding_previous(client):

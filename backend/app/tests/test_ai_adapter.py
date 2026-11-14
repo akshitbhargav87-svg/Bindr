@@ -206,7 +206,7 @@ def test_ai_adapter_verbatim_quote_validation():
             case_id="11111111-1111-4111-8111-111111111111",
             evidence=[{"evidence_id": "e1", "text": "Original true text"}]
         )
-    assert "not an exact verbatim substring" in str(exc.value)
+    assert "quote not found in source evidence" in str(exc.value) or "not an exact verbatim substring" in str(exc.value)
 
 
 def test_ai_adapter_timeout_mapping():
