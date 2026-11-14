@@ -12,7 +12,13 @@ Managed Google/Firebase sign-in, verified email/password, reset links, optional 
 - Frontend: 69 checks passed, including component lifecycle tests; connected production build passed.
 - Preserved integration regressions: 28 passed in the final resumed run.
 - Python pip check and deployment/start shell syntax passed.
-- Earlier desktop/mobile screenshots: storage/account-ui/login-desktop.jpg and register-mobile.jpg. Local preview used fake Firebase identifiers; it did not verify live Google login.
+- Earlier desktop/mobile screenshots in storage/account-ui show the initial design, which the user rejected. They do not represent the current account screens. Local preview uses fake Firebase identifiers; it does not verify live Google login.
+
+## Account screen design revision
+
+The user requested a UI correction only. Account screens now reuse Bindr's consumer header, Brand, Button and PromiseConversation components, Nunito display headings and shared colors. The oversized split background and generic record illustration were replaced by a white layout, the existing promise conversation and a compact form card. Narrow screens show the form on its own. Authentication handlers and provider/session behavior are unchanged. The connected TypeScript/Vite build and all 69 frontend checks passed after this revision.
+
+Preview: http://127.0.0.1:8026/login (local combined app, mock AI and placeholder Firebase identifiers). Real-provider acceptance remains pending. The user explicitly asked to work from the code; do not require app or screenshot inspection before making these UI fixes.
 
 ## Owner gate
 
