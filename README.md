@@ -70,7 +70,7 @@ Full resolution and reviewed revisions persist. Partial receipts, manual-only sa
 
 - **Akshit Bhargav:** product, integration and release coordination.
 - **Tushar Aggarwal (`biney25`):** frontend.
-- **Lokesh:** backend.
+- **Lokesh Goel (`lokesh-27-goel`):** backend.
 - **Kunal Gupta:** AI extraction and document processing.
 
 The release merges the original feature branches without squashing their history, preserving author attribution. See [release audit](docs/RELEASE_AUDIT.md) for test evidence and remaining deployment checks. Earlier phase handovers describe historical snapshots.
