@@ -1,6 +1,6 @@
 # Google Cloud migration status
 
-> Update, 15 November 2026 (IST): the user deployed Google Cloud successfully. Real Meta extraction, screenshot OCR, the API lifecycle, secure cookies and private access checks passed. See [live acceptance](LIVE_ACCEPTANCE.md); the migration preparation record below is preserved.
+> Update, 15 November 2026 (IST): the user deployed Google Cloud successfully. Real Meta extraction, screenshot OCR, the API lifecycle, secure cookies and private access checks passed. Public health and persistence of reviewed records and exact original files across a second deployment also passed. See [live acceptance](LIVE_ACCEPTANCE.md); the migration preparation record below is preserved.
 
 ## Recovered task
 

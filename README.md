@@ -6,7 +6,7 @@
 
 Companies promise refunds, replacements and service fixes across messages and documents. When dates change, the proof gets scattered. Bindr keeps the original evidence, confirmed terms, revisions and outcome in one place.
 
-> Live on Google Cloud. The deployed API lifecycle, real Meta extraction, screenshot OCR, private original downloads and workspace isolation have passed with synthetic evidence. See [live acceptance](docs/LIVE_ACCEPTANCE.md) for the exact checks and remaining redeploy-persistence gate.
+> Live on Google Cloud. The deployed API lifecycle, real Meta extraction, screenshot OCR, private original downloads and workspace isolation have passed with synthetic evidence. Saved records and exact original files also survived a redeploy. See [live acceptance](docs/LIVE_ACCEPTANCE.md) for the checks and MVP limits.
 
 ## Try the story
 

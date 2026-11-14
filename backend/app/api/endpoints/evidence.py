@@ -219,7 +219,8 @@ def get_evidence_content(
 
     Security & Storage Invariants:
     1. Case Ownership: Caller must be authenticated and own the case enclosing this evidence.
-       Unauthorized or cross-user requests return 404 NOT_FOUND to prevent ID enumeration.
+       Missing/invalid authentication returns 401; authenticated cross-user or missing
+       evidence returns 404 NOT_FOUND to prevent ID enumeration.
     2. Private Backend-Mediated Streaming: No public object URLs or signed URLs are exposed.
        All evidence bytes stream directly from private storage through the backend.
     3. Security Headers:

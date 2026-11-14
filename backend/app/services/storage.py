@@ -23,9 +23,11 @@ Storage & Evidence Preservation Invariants:
    must pass through authenticated backend endpoints that verify case ownership and emit
    security headers (`Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`).
 
-5. Atomic Rollback Compensation:
-   If an upload's enclosing database transaction fails, storage drivers provide best-effort
-   deletion compensation (`delete_file`) to prevent orphaned storage objects.
+5. Best-Effort Rollback Compensation:
+   The upload endpoint requests deletion after a known pre-commit flush failure. It
+   preserves the object after an uncertain commit acknowledgement, because metadata
+   may already be committed. SQL and file storage do not share an atomic transaction;
+   uncertain failures or failed compensation can leave unreferenced private objects.
 """
 
 import os

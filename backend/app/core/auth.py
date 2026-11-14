@@ -11,14 +11,14 @@ Security & Authorization Invariants:
    to prevent ID enumeration and resource existence disclosure.
 
 2. Verifiable Session Identity:
-   Sessions use cryptographically signed tokens (HMAC-SHA256) encoding `session_id`,
-   `user_id`, `issued_at (iat)`, and `expires_at (exp)`. Arbitrary, forged, or altered
-   tokens are rejected with HTTP 401 UNAUTHENTICATED.
+   HMAC-SHA256 signs the session ID, user ID and issuance timestamp. The token carries
+   those three fields and the signature; it has no separate `exp` claim. Arbitrary,
+   forged, or altered tokens are rejected with HTTP 401 UNAUTHENTICATED.
 
 3. Lifetime & Clock Skew Validation:
-   Sessions validate that `iat <= current_time + CLOCK_SKEW_TOLERANCE` and
-   `current_time <= exp + CLOCK_SKEW_TOLERANCE`. Future-dated or expired sessions
-   fail verification immediately.
+   Issuance timestamps beyond now + CLOCK_SKEW_TOLERANCE_SECONDS are rejected.
+   Expiry is derived from the timestamp: now - issued_at must not exceed
+   SESSION_LIFETIME_SECONDS. The expiry check does not add a clock-skew allowance.
 
 4. CSRF & Origin Defense-in-Depth:
    Cookie-authenticated state-changing requests (POST, PUT, DELETE, PATCH) enforce
@@ -27,8 +27,8 @@ Security & Authorization Invariants:
 
 5. Secret Configuration Invariant:
    In deployed environments (`production`, `staging`), `AUTH_SECRET` must be an explicit
-   high-entropy secret of at least 32 characters. Known development keys and predictable
-   defaults are rejected at startup.
+   secret of at least 32 characters; generate it randomly. Values explicitly listed
+   in INSECURE_SECRETS are rejected. Length validation is not an entropy test.
 """
 
 from __future__ import annotations

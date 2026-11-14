@@ -1,132 +1,72 @@
-# Bindr Backend Service
+# Bindr backend
 
-FastAPI-powered backend service providing case tracking, cryptographic session authentication, private evidence storage, and AI-driven promise extraction.
+FastAPI provides browser sessions, owned cases, private evidence, Meta extraction, reviewed promises, revisions and full resolution. Run the commands below from the **repository root**, using Python 3.12+.
 
----
+## Install and run locally
 
-## 1. Prerequisites
-
-* **Python:** 3.12 or higher.
-* **Virtual Environment:** Recommended (`venv` or `conda`).
-
----
-
-## 2. Installation
-
-1. Create and activate a Python virtual environment:
-   ```bash
-   python -m venv venv
-   # On macOS/Linux:
-   source venv/bin/activate
-   # On Windows (PowerShell):
-   .\venv\Scripts\Activate.ps1
-   ```
-
-2. Install core backend dependencies:
-   ```bash
-   pip install -r backend/requirements.txt
-   ```
-
-3. (Optional) Install OCR and AI extraction dependencies for local document processing:
-   ```bash
-   pip install -r backend/app/ai/requirements-ai.txt
-   ```
-
----
-
-## 3. Environment Configuration
-
-The backend operates with sensible defaults for local development. You can customize variables in your shell environment or a `.env` file:
+Bash (macOS/Linux):
 
 ```bash
-# Database (defaults to local SQLite database)
-DATABASE_URL=sqlite:///./promise_keeper.db
-
-# Environment mode ('development', 'staging', or 'production')
-ENVIRONMENT=development
-
-# Session Signing Secret (required for production; defaults to dev key in development)
-AUTH_SECRET=bindr_dev_secret_hmac_key_min_32_characters_long_2026
-
-# AI Promise Extraction Provider ('mock' for deterministic tests, 'meta' for live API)
-AI_PROVIDER=mock
-
-# Live Meta Model API (required only if AI_PROVIDER=meta)
-# MODEL_API_KEY=your_meta_api_key_here
-# META_MODEL=muse-spark-1.3
-# META_BASE_URL=https://api.meta.ai/v1
-
-# Evidence Storage ('local' or 'gcs')
-EVIDENCE_STORAGE_BACKEND=local
-EVIDENCE_STORAGE_DIR=./storage/evidence
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements-runtime.txt 'pytest>=8,<9'
+export AI_PROVIDER=mock
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-For full reference, see `docs/ENVIRONMENT.md`.
+PowerShell (Windows):
 
----
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r backend/requirements-runtime.txt 'pytest>=8,<9'
+$env:AI_PROVIDER='mock'
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+```
 
-## 4. Starting the FastAPI Server
+The shared pinned runtime includes the document-processing imports needed by the app; core requirements alone are insufficient. Local defaults use SQLite and private files in `storage/evidence`. `mock` is an explicitly selected offline demonstration extractor, not live AI. The backend defaults to `meta` otherwise, and reports missing credentials instead of silently falling back.
 
-Launch the development server with live reload:
+Set configuration in the process environment before starting the server. Bash variables must be exported; PowerShell uses `$env:VARIABLE='value'`. Do not assume a root `.env` file loads all backend settings. See the [actual environment reference](../docs/ENVIRONMENT.md). Production requires a random `AUTH_SECRET` and private persistent storage; keep live keys in Secret Manager or the server environment, never in Git or `VITE_` variables.
+
+## Health and browser assets
+
+- `GET /health` runs a real database query and returns `{"status":"healthy","service":"Bindr"}` on success. It does not test the AI provider or bucket access.
+- `/healthz` is the local/Render compatibility alias; use `/health` publicly on Cloud Run.
+- `/api/health` and `/api/v1/health` are legacy informational routes and do not run the same database check.
+- Interactive API documentation is at `http://127.0.0.1:8000/docs`.
+- Build the frontend using the [root README](../README.md) for the combined browser app. Without built assets, the homepage returns 503 while API routes remain available.
+
+## Tests
+
+After installing the runtime and pytest, run backend and AI tests from the root:
 
 ```bash
-uvicorn backend.app.main:app --reload --port 8000
+python -m pytest backend/app/tests backend/app/ai/tests -q
 ```
 
-Once running:
-* **Interactive API Docs (Swagger):** `http://localhost:8000/docs`
-* **Alternative API Docs (ReDoc):** `http://localhost:8000/redoc`
-
----
-
-## 5. Health & Readiness Check
-
-Verify service health via the unauthenticated readiness endpoint:
+Screenshot checks use real OCR. Prepare public model files once with network access before an offline regression run:
 
 ```bash
-curl http://localhost:8000/health
+# Bash; PowerShell equivalent: $env:OCR_MODEL_DIR=(Join-Path $PWD '.ocr-models')
+export OCR_MODEL_DIR="$PWD/.ocr-models"
+python -c 'from backend.app.ai.document_processor import warm_ocr_models; warm_ocr_models()'
+python scripts/run_integration_regressions.py --source . --auth-hook tests/regression/final_acceptance/signed_session.py --ocr-model-dir .ocr-models
 ```
 
-Expected response:
-```json
-{
-  "status": "healthy",
-  "service": "Bindr"
-}
-```
+The regression runner isolates storage/database configuration and supplies a test-only signed-session hook. Use pytest for the function-based backend tests; unittest discovery alone does not run them. Tests use synthetic evidence and offline/controlled provider responses; the [live acceptance report](../docs/LIVE_ACCEPTANCE.md) separately records real Meta and Google Cloud checks.
 
-The health check confirms that database connectivity and required backend components are functioning properly. The endpoint is also available at `/api/v1/health`.
+## Main API routes
 
----
+| Purpose | Route |
+|---|---|
+| Create/inspect browser session | `POST /api/v1/auth/session`, `GET /api/v1/auth/session` |
+| Create/list cases | `POST /api/v1/cases`, `GET /api/v1/cases` |
+| Read case and related records | `GET /api/v1/cases/{case_id}` |
+| Upload original evidence | `POST /api/v1/cases/{case_id}/evidence` |
+| Private original download | `GET /api/v1/cases/{case_id}/evidence/{evidence_id}/content` |
+| Extract pending suggestions | `POST /api/v1/cases/{case_id}/extractions` |
+| Explicitly approve/reject suggestions | `POST /api/v1/cases/{case_id}/extractions/{extraction_id}/review` |
+| Preview a factual complaint | `POST /api/v1/cases/{case_id}/complaint-draft` |
+| Confirm full resolution | `POST /api/v1/cases/{case_id}/resolve` |
 
-## 6. Running Tests
-
-Run the full integration regression test suite:
-
-```bash
-pytest tests/regression
-```
-
-Run targeted backend model and service tests:
-
-```bash
-python -m unittest discover backend/app/tests
-```
-
----
-
-## 7. Key Architecture & Endpoints
-
-* **Authentication & CSRF Bootstrap:**
-  * `POST /api/v1/auth/bootstrap` — Generates signed session cookie and returns matching CSRF token.
-* **Cases Management:**
-  * `POST /api/v1/cases` — Create a case.
-  * `GET /api/v1/cases` — List cases owned by current session.
-  * `GET /api/v1/cases/{case_id}` — Get case details, timeline, commitments, and extractions.
-  * `POST /api/v1/cases/{case_id}/resolve` — Mark case resolved with optimistic concurrency check.
-* **Evidence Handling:**
-  * `POST /api/v1/cases/{case_id}/evidence` — Upload evidence (PNG, JPEG, PDF, text/plain, max 10 MiB).
-  * `GET /api/v1/cases/{case_id}/evidence/{evidence_id}/content` — Authenticated, private evidence download with `Cache-Control: private, no-store`.
-* **AI Extraction & Review Workflow:**
-  * `POST /api/v1/cases/{case_id}/extractions/draft` — Trigger OCR and AI extraction pipeline.
-  * `POST /api/v1/cases/{case_id}/extractions/{extraction_id}/review` — Human review and confirmation of promise candidates into active commitments.
+State-changing cookie requests require the matching CSRF token and permitted origin; case writes require the current case version. Original files stay private, and suggestions do not become commitments before review. Partial receipts, account recovery and other limitations remain documented in the [root README](../README.md). For the existing Google service, follow the [update instructions](../docs/DEPLOYMENT_GOOGLE_CLOUD.md), preserving the database, bucket and secrets.
