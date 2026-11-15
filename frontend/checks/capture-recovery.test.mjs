@@ -7,7 +7,7 @@ import {build} from 'esbuild';
 const dom=new JSDOM('<!doctype html><html><body></body></html>',{url:'https://bindr.test'});
 globalThis.window=dom.window;globalThis.document=dom.window.document;globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 const {createRoot}=await import('react-dom/client');
-const code=(await build({stdin:{contents:"export * from './src/state/Capture';export {default as ProposalReview} from './src/components/workspace/ProposalReview';",resolveDir:process.cwd()},bundle:true,format:'cjs',platform:'node',packages:'external',jsx:'automatic',write:false})).outputFiles[0].text;
+const code=(await build({stdin:{contents:"export * from './src/state/Capture';export {default as ProposalReview} from './src/components/workspace/ProposalReview';",resolveDir:process.cwd()},bundle:true,format:'cjs',platform:'node',packages:'external',jsx:'automatic',loader:{'.css':'empty'},write:false})).outputFiles[0].text;
 const mod={exports:{}};new Function('require','module','exports',code)(createRequire(import.meta.url),mod,mod.exports);const m=mod.exports;
 const tick=()=>new Promise(r=>setImmediate(r));
 test('actual capture survives auth subtree remount, hides while signed out and rejects late cross-account writes',async()=>{

@@ -10,7 +10,7 @@ const dom=new JSDOM('<!doctype html><html><body></body></html>',{url:'https://bi
 globalThis.window=dom.window;globalThis.document=dom.window.document;globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 dom.window.alert=value=>executions.push(value);
 const {createRoot}=await import('react-dom/client');
-const code=(await build({entryPoints:['src/components/workspace/ProposalReview.tsx'],bundle:true,format:'cjs',platform:'node',packages:'external',jsx:'automatic',write:false})).outputFiles[0].text;
+const code=(await build({entryPoints:['src/components/workspace/ProposalReview.tsx'],bundle:true,format:'cjs',platform:'node',packages:'external',jsx:'automatic',loader:{'.css':'empty'},write:false})).outputFiles[0].text;
 const mod={exports:{}};new Function('require','module','exports',code)(createRequire(import.meta.url),mod,mod.exports);const View=mod.exports.default;
 const payload=`We will refund ₹500 by November 18, 2026. <img src="https://remote.invalid/pixel" onerror="alert('Bindr-XSS-Test')"><script>alert('Bindr-XSS-Test')</script><b>Refund approved</b>`;
 test('serialized/reloaded proposal review escapes stored markup and records no execution or resource load',async()=>{
