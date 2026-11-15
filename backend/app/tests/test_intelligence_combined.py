@@ -62,9 +62,9 @@ def test_actual_platform_with_b_engine_review_receipt_revision_export_and_answer
     assert answer.json()['status']=='answered' and answer.json()['citations'][0]['quote'] in 'We will refund ₹500 by November 18, 2026.'
     exported=post(client,f'/cases/{cid}/exports',{'expected_version':7,'source_ids':[eid],'reviewed_wording':'Synthetic reviewed facts','formats':['bundle']},'export');assert exported.status_code==202,exported.text
     assert exported.json()['job']['state']=='queued'
-    from backend.app.models.jobs import Export
+    from backend.app.models.jobs import Export, Job
     from backend.app.services.platform.exports import build
-    row=db_session.get(Export,exported.json()['export_id']);build(db_session,row)
+    row=db_session.get(Export,exported.json()['export_id']);build(db_session,db_session.get(Job,exported.json()['job']['id']));db_session.commit()
     downloaded=client.get(f"/api/v2/exports/{row.id}?download=true");assert downloaded.status_code==200,downloaded.text
     import io,zipfile
     with zipfile.ZipFile(io.BytesIO(downloaded.content)) as bundle:

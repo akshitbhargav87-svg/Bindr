@@ -16,6 +16,7 @@ import { AccountCaptureProvider } from './state/CaptureRecovery';
 import { ComplaintsProvider } from './state/Complaints';
 import Complaint,{ComplaintDrafts} from './pages/Complaint';
 import { PreferencesProvider } from './state/Preferences';
+const PlatformWorkspace=lazy(()=>import('./pages/PlatformWorkspace'));
 const Verifier=lazy(()=>import('./pages/Verifier'));
 const IntelligenceCapture=lazy(()=>import('./pages/IntelligenceCapture'));
 const SharePage=lazy(()=>import('./pages/Share'));
@@ -28,8 +29,8 @@ const AuthPage=lazy(()=>import('./pages/Auth'));
 function NotFound() {return <main className="foundation-page"><Brand/><div className="foundation-body"><span className="mono">404 / PAGE NOT FOUND</span><h1>This page isn’t on the record.</h1><Link to="/" className="button button-primary">Back to Bindr <ArrowRight size={16}/></Link></div></main>;}
 function AccountRoutes(){const auth=useAuth();return <PreferencesProvider key={auth.info?.account.id ?? auth.status}><ComplaintsProvider><Routes><Route path="/" element={<Landing/>}/><Route path="/verify" element={<Verifier/>}/><Route path="/login" element={<AuthPage/>}/><Route path="/register" element={<AuthPage/>}/><Route path="/forgot-password" element={<AuthPage/>}/><Route path="/auth/action" element={<AuthPage/>}/><Route element={<AccountGate/>}><Route path="/app" element={<WorkspaceProvider><WorkspaceLayout/></WorkspaceProvider>}>
     <Route path="cases/:caseId/workflow" element={<WorkflowPage/>}/><Route path="cases/:caseId/complaint" element={<Complaint/>}/><Route path="drafts" element={<ComplaintDrafts/>}/>
-    <Route index element={<Overview/>}/><Route path="cases" element={<Cases/>}/><Route path="cases/:caseId" element={<CaseDetail/>}/><Route path="cases/:caseId/update" element={<CaseCommunication/>}/><Route path="archived" element={<ArchivedCases/>}/>
-    <Route path="capture-v2" element={<IntelligenceCapture/>}/><Route path="share" element={<SharePage/>}/><Route path="upload" element={<Capture/>}/><Route path="review" element={<Capture/>}/><Route path="evidence" element={<EvidenceLibrary/>}/>
+    <Route index element={import.meta.env.VITE_ENABLE_V2_CAPTURE==='true' ? <PlatformWorkspace/> : <Overview/>}/><Route path="cases" element={import.meta.env.VITE_ENABLE_V2_CAPTURE==='true' ? <PlatformWorkspace/> : <Cases/>}/><Route path="cases/:caseId" element={<CaseDetail/>}/><Route path="cases/:caseId/update" element={<CaseCommunication/>}/><Route path="archived" element={<ArchivedCases/>}/>
+    <Route path="capture-v2" element={<IntelligenceCapture/>}/><Route path="share" element={<SharePage/>}/><Route path="upload" element={import.meta.env.VITE_ENABLE_V2_CAPTURE==='true' ? <IntelligenceCapture/> : <Capture/>}/><Route path="review" element={<Capture/>}/><Route path="evidence" element={<EvidenceLibrary/>}/>
     <Route path="agenda" element={<Agenda/>}/><Route path="activity" element={<Activity/>}/><Route path="settings" element={<Settings/>}/><Route path="help" element={<WorkspaceHelp/>}/>
     <Route path="*" element={<NotFound/>}/>
   </Route></Route><Route path="*" element={<NotFound/>}/></Routes></ComplaintsProvider></PreferencesProvider>;}
