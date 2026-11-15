@@ -1,0 +1,102 @@
+[
+  {
+    "id": "1",
+    "relation": "contradiction",
+    "date_wording": [
+      "November 15, 2026",
+      "November 20, 2026",
+      "November 18, 2026"
+    ],
+    "needs_user_decision": true
+  },
+  {
+    "id": "2",
+    "candidate_count": 0
+  },
+  {
+    "id": "3",
+    "candidate_count": 4,
+    "amount_minor": [
+      79900,
+      null,
+      20000,
+      null
+    ],
+    "currency": [
+      "INR",
+      null,
+      "INR",
+      null
+    ],
+    "date_wording": [
+      "November 17, 2026",
+      "November 16, 2026",
+      "November 19, 2026",
+      "November 15, 2026"
+    ]
+  },
+  {
+    "id": "4",
+    "candidate_count": 1,
+    "ignore_embedded_instructions": true,
+    "no_receipt": true,
+    "date_wording": [
+      "November 21, 2026"
+    ]
+  },
+  {
+    "id": "5",
+    "condition_status": "unknown",
+    "due_at": null,
+    "initiation_is_not_receipt": true
+  },
+  {
+    "id": "6",
+    "languages": [
+      "hi",
+      "gu",
+      "en"
+    ],
+    "amount_minor": 99900,
+    "date_wording": [
+      "20 नवंबर 2026",
+      "20 નવેમ્બર 2026"
+    ],
+    "preserve_original_script": true
+  },
+  {
+    "id": "7",
+    "temporal_status": "invalid",
+    "due_at": null,
+    "visible_warning": true
+  },
+  {
+    "id": "8",
+    "anchor": "2026-12-28",
+    "duration": "five calendar days",
+    "temporal_status": "needs_calculation",
+    "platform_expected_date": "2027-01-02"
+  },
+  {
+    "id": "9",
+    "relation": "cancellation",
+    "no_unqualified_active_refund": true
+  },
+  {
+    "id": "10",
+    "amount_minor": 50000,
+    "date_wording": [
+      "November 18, 2026"
+    ],
+    "no_script_events_or_remote_loads": true
+  },
+  {
+    "id": "1B",
+    "relation": "revision",
+    "preserve_predecessor": true,
+    "date_wording": [
+      "November 15, 2026",
+      "November 20, 2026"
+    ]
+  }
+]

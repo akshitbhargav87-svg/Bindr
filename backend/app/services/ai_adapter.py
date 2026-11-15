@@ -30,6 +30,8 @@ import math
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone, timedelta
+from time import monotonic
+from uuid import uuid4
 from backend.app.core.config import settings
 
 logger = logging.getLogger("backend.app.services.ai_adapter")
@@ -73,6 +75,22 @@ class AIModuleAdapter:
     def __init__(self, timeout_seconds: int = 45):
         self.timeout_seconds = timeout_seconds
         self._engine = None
+
+    def extract_proposals_v2(self, request, *, provider=None, diagnostics=None):
+        """Data-only v2 seam: proposals only, no auth, database or storage effects.
+
+        A must authorize the snapshot before calling. A test provider must be injected
+        explicitly; v2 never silently changes a real request to mock inference.
+        """
+        from backend.app.services.intelligence.extraction import ProposalEngine
+        from backend.app.ai.proposals import StructuredProposalProvider
+        if provider is None:
+            adapter = self
+            class ConfiguredProvider:
+                def extract_proposals(self, payload, timeout):
+                    return StructuredProposalProvider(adapter._get_engine().provider).extract_proposals(payload, timeout)
+            provider = ConfiguredProvider()
+        return ProposalEngine(provider).extract(request, diagnostics)
 
     def _get_engine(self):
         """
@@ -123,23 +141,23 @@ class AIModuleAdapter:
                     AIResponseParsingError,
                 )
                 if isinstance(e, AIAuthenticationError):
-                    raise AIServiceUnavailableError(f"Meta provider authentication failed: {e}", code="AI_UNAVAILABLE") from e
+                    raise AIServiceUnavailableError("AI provider authentication is unavailable.", code="AI_UNAVAILABLE") from e
                 elif isinstance(e, (AIConnectionError, AIRateLimitError)):
-                    raise AIServiceUnavailableError(f"Meta provider service error: {e}", code="AI_UNAVAILABLE") from e
+                    raise AIServiceUnavailableError("AI provider service is unavailable.", code="AI_UNAVAILABLE") from e
                 elif isinstance(e, AIResponseParsingError):
-                    raise AIInvalidOutputError(f"AI provider returned malformed output: {e}") from e
+                    raise AIInvalidOutputError("AI provider returned malformed output.") from e
             except ImportError:
                 pass
 
             err_str = str(e).lower()
             if isinstance(e, TimeoutError) or "timeout" in err_str or "timed out" in err_str:
-                raise AITimeoutError(f"AI provider request timed out: {e}") from e
+                raise AITimeoutError("AI provider request timed out.") from e
             elif "api key" in err_str or "unauthorized" in err_str:
-                raise AIServiceUnavailableError(f"Meta provider authentication failed: {e}", code="AI_UNAVAILABLE") from e
+                raise AIServiceUnavailableError("AI provider authentication is unavailable.", code="AI_UNAVAILABLE") from e
             elif "connection" in err_str or "network" in err_str:
-                raise AIServiceUnavailableError(f"Meta provider connection failed: {e}", code="AI_UNAVAILABLE") from e
+                raise AIServiceUnavailableError("AI provider connection failed.", code="AI_UNAVAILABLE") from e
             else:
-                raise AIServiceUnavailableError(f"Failed to initialize AI provider '{provider_name}': {e}", code="AI_UNAVAILABLE") from e
+                raise AIServiceUnavailableError("AI provider initialization failed.", code="AI_UNAVAILABLE") from e
 
     def prepare_extraction_input(
         self,
@@ -226,10 +244,12 @@ class AIModuleAdapter:
         candidates = []
         candidate_counter = 1
         total_extracted_chars = 0
+        started, trace_id = monotonic(), uuid4().hex
 
         try:
             try:
-                from backend.app.ai import extract_commitment_from_evidence, SourceMetadata
+                from backend.app.ai import SourceMetadata
+                from backend.app.ai.batch import extract_all_from_evidence as extract_commitment_from_evidence
                 from backend.app.ai.document_processor import UnsupportedFileTypeError, UnreadableDocumentError
             except (ImportError, AttributeError):
                 extract_commitment_from_evidence = None
@@ -244,6 +264,9 @@ class AIModuleAdapter:
             )
 
             for ev in evidence:
+                remaining = self.timeout_seconds - (monotonic() - started)
+                if remaining <= 0:
+                    raise AITimeoutError("The extraction request budget elapsed. Originals are retained.")
                 eid = ev["evidence_id"]
                 fname = ev.get("filename") or f"{eid}.txt"
                 fbytes = ev.get("file_bytes")
@@ -258,6 +281,7 @@ class AIModuleAdapter:
                 source_meta = SourceMetadata(
                     sender=merchant_name,
                     communication_date=ev.get("occurred_at"),
+                    extra={"request_id": trace_id},
                 ) if SourceMetadata is not None else None
 
                 try:
@@ -272,7 +296,7 @@ class AIModuleAdapter:
                             metadata=source_meta,
                             provider=self._get_engine().provider,
                             fallback_on_error=False,
-                            timeout=self.timeout_seconds,
+                            timeout=max(1, int(remaining)),
                         )
                     else:
                         raise AIServiceUnavailableError(
@@ -284,16 +308,18 @@ class AIModuleAdapter:
                 except UnreadableDocumentError as e:
                     raise UnreadableEvidenceError(str(e)) from e
                 except AIAuthenticationError as e:
-                    raise AIServiceUnavailableError(f"Meta provider authentication failed: {e}", code="AI_UNAVAILABLE") from e
+                    raise AIServiceUnavailableError("AI provider authentication is unavailable.", code="AI_UNAVAILABLE") from e
                 except (AIConnectionError, AIRateLimitError) as e:
                     if "timed out" in str(e).lower() or "timeout" in str(e).lower():
                         raise AITimeoutError("AI provider request timed out.") from e
-                    raise AIServiceUnavailableError(f"Meta provider connection failed: {e}", code="AI_UNAVAILABLE") from e
+                    raise AIServiceUnavailableError("AI provider connection failed.", code="AI_UNAVAILABLE") from e
                 except AIResponseParsingError as e:
-                    raise AIInvalidOutputError(f"AI response parsing error: {e}") from e
+                    raise AIInvalidOutputError("AI response parsing failed.") from e
                 except (TimeoutError, AITimeoutError) as e:
-                    raise AITimeoutError(f"AI provider request timed out: {e}") from e
+                    raise AITimeoutError("AI provider request timed out.") from e
 
+                batch_results = result if isinstance(result, list) else [result]
+                result = batch_results[0]
                 raw_text = getattr(result, "raw_source_text", "") or text_content or ""
                 if not raw_text.strip():
                     raise UnreadableEvidenceError("No readable text could be extracted from the evidence.")
@@ -301,87 +327,88 @@ class AIModuleAdapter:
                 total_extracted_chars += len(raw_text)
                 if total_extracted_chars > 50000:
                     raise AIValidationError("Total evidence text exceeds 50,000 characters limit.")
-                if result.commitment_category.value == "no_commitment":
-                    continue
+                for result in batch_results:
+                    if result.commitment_category.value == "no_commitment":
+                        continue
 
-                # Verify source quotation is verbatim
-                source_quote = getattr(result, "supporting_quotation", None)
-                raw_text = getattr(result, "raw_source_text", "") or ""
-                if raw_text:
-                    ev["text"] = raw_text
-                evidence_text = raw_text or text_content or ""
-                if not source_quote:
-                    raise AIInvalidOutputError("A commitment candidate requires an exact source quotation.")
+                    # Verify source quotation is verbatim
+                    source_quote = getattr(result, "supporting_quotation", None)
+                    raw_text = getattr(result, "raw_source_text", "") or ""
+                    if raw_text:
+                        ev["text"] = raw_text
+                    evidence_text = raw_text or text_content or ""
+                    if not source_quote:
+                        raise AIInvalidOutputError("A commitment candidate requires an exact source quotation.")
 
-                if evidence_text and source_quote not in evidence_text:
-                    raise AIInvalidOutputError(
-                        f"Model generated quote not found in source evidence '{eid}'."
-                    )
+                    if evidence_text and source_quote not in evidence_text:
+                        raise AIInvalidOutputError(
+                            f"Model generated quote not found in source evidence '{eid}'."
+                        )
 
-                if len(source_quote) > 2000:
-                    raise AIInvalidOutputError("Extracted source quote exceeds 2000 characters limit.")
+                    if len(source_quote) > 2000:
+                        raise AIInvalidOutputError("Extracted source quote exceeds 2000 characters limit.")
 
-                amt_minor = None
-                if getattr(result, "amount", None) is not None:
-                    if result.amount < 0:
-                        raise AIInvalidOutputError("Model extracted a negative monetary amount.")
-                    try:
-                        decimal_amount = Decimal(str(result.amount))
-                        if not decimal_amount.is_finite():
-                            raise AIInvalidOutputError("Extracted amount must be finite.")
-                        amt_minor = int((decimal_amount * 100).quantize(Decimal("1")))
-                    except (InvalidOperation, ValueError, OverflowError) as exc:
-                        raise AIInvalidOutputError("Extracted amount is invalid.") from exc
-                    if amt_minor < 0 or amt_minor > 9007199254740991:
-                        raise AIInvalidOutputError("Extracted amount_minor out of allowable range (0 - 9007199254740991).")
+                    amt_minor = None
+                    if getattr(result, "amount", None) is not None:
+                        if result.amount < 0:
+                            raise AIInvalidOutputError("Model extracted a negative monetary amount.")
+                        try:
+                            decimal_amount = Decimal(str(result.amount))
+                            if not decimal_amount.is_finite():
+                                raise AIInvalidOutputError("Extracted amount must be finite.")
+                            amt_minor = int((decimal_amount * 100).quantize(Decimal("1")))
+                        except (InvalidOperation, ValueError, OverflowError) as exc:
+                            raise AIInvalidOutputError("Extracted amount is invalid.") from exc
+                        if amt_minor < 0 or amt_minor > 9007199254740991:
+                            raise AIInvalidOutputError("Extracted amount_minor out of allowable range (0 - 9007199254740991).")
 
-                curr = getattr(result, "currency", None)
-                curr = {"₹": "INR", "RS": "INR", "RS.": "INR", "$": "USD", "€": "EUR", "£": "GBP"}.get((curr or "").strip().upper(), curr)
-                if curr:
-                    curr = curr.strip().upper()
-                    if not re.fullmatch(r"[A-Z]{3}", curr):
+                    curr = getattr(result, "currency", None)
+                    curr = {"₹": "INR", "RS": "INR", "RS.": "INR", "$": "USD", "€": "EUR", "£": "GBP"}.get((curr or "").strip().upper(), curr)
+                    if curr:
+                        curr = curr.strip().upper()
+                        if not re.fullmatch(r"[A-Z]{3}", curr):
+                            curr = None
+
+                    # Amount and currency pairing rule
+                    if (amt_minor is None and curr is not None) or (amt_minor is not None and curr is None):
+                        amt_minor = None
                         curr = None
 
-                # Amount and currency pairing rule
-                if (amt_minor is None and curr is not None) or (amt_minor is not None and curr is None):
-                    amt_minor = None
-                    curr = None
+                    kind_val = result.commitment_category.value
+                    if kind_val not in {"refund", "replacement", "service", "other"}:
+                        kind_val = "other"
 
-                kind_val = result.commitment_category.value
-                if kind_val not in {"refund", "replacement", "service", "other"}:
-                    kind_val = "other"
+                    warnings = list(result.missing_or_ambiguous_fields or [])
+                    warnings.append("AI suggestions require your review; confidence is not calibrated.")
+                    if provider_name == "mock":
+                        warnings.append("Offline rule-based extraction; no live AI provider was used.")
+                    due_at = _confirmed_deadline(result, ev.get("occurred_at"), warnings)
+                    revision = {"relation": "new", "supersedes_id": None, "reason": "Initial commitment candidate"}
+                    active = [c for c in (existing_commitments or []) if c.get("status") == "active"]
+                    if active:
+                        revision = {"relation": "uncertain", "supersedes_id": None, "reason": "Existing promises are on record; confirm whether this message revises one or adds a separate promise."}
+                    cand_id = f"c{candidate_counter}"
+                    candidate_counter += 1
 
-                warnings = list(result.missing_or_ambiguous_fields or [])
-                warnings.append("AI suggestions require your review; confidence is not calibrated.")
-                if provider_name == "mock":
-                    warnings.append("Offline rule-based extraction; no live AI provider was used.")
-                due_at = _confirmed_deadline(result, ev.get("occurred_at"), warnings)
-                revision = {"relation": "new", "supersedes_id": None, "reason": "Initial commitment candidate"}
-                active = [c for c in (existing_commitments or []) if c.get("status") == "active"]
-                if active:
-                    revision = {"relation": "uncertain", "supersedes_id": None, "reason": "Existing promises are on record; confirm whether this message revises one or adds a separate promise."}
-                cand_id = f"c{candidate_counter}"
-                candidate_counter += 1
-
-                candidates.append({
-                    "candidate_id": cand_id,
-                    "terms": {
-                        "kind": kind_val,
-                        "description": result.commitment_description[:2000].strip(),
-                        "amount_minor": amt_minor,
-                        "currency": curr,
-                        "due_at": due_at
-                    },
-                    "sources": [
-                        {
-                            "evidence_id": eid,
-                            "quote": source_quote
-                        }
-                    ],
-                    "confidence": 0.0,
-                    "warnings": list(dict.fromkeys(warnings)),
-                    "revision": revision
-                })
+                    candidates.append({
+                        "candidate_id": cand_id,
+                        "terms": {
+                            "kind": kind_val,
+                            "description": result.commitment_description[:2000].strip(),
+                            "amount_minor": amt_minor,
+                            "currency": curr,
+                            "due_at": due_at
+                        },
+                        "sources": [
+                            {
+                                "evidence_id": eid,
+                                "quote": source_quote
+                            }
+                        ],
+                        "confidence": 0.0,
+                        "warnings": list(dict.fromkeys(warnings)),
+                        "revision": revision
+                    })
 
             output_dict = {
                 "schema_version": 1,
@@ -393,17 +420,22 @@ class AIModuleAdapter:
         except AIAdapterError:
             raise
         except Exception as e:
+            from backend.app.services.intelligence.extraction import IntelligenceFailure
+            if isinstance(e, IntelligenceFailure):
+                error_type = {"AI_TIMEOUT": AITimeoutError, "AI_INVALID_OUTPUT": AIInvalidOutputError,
+                              "VALIDATION_ERROR": AIValidationError}.get(e.code, AIServiceUnavailableError)
+                raise error_type(str(e)) from None
             err_str = str(e).lower()
             if isinstance(e, TimeoutError) or "timeout" in err_str or "timed out" in err_str:
-                raise AITimeoutError(f"AI provider request timed out: {e}") from e
+                raise AITimeoutError("AI provider request timed out.") from e
             elif "api key" in err_str or "unauthorized" in err_str:
-                raise AIServiceUnavailableError(f"AI provider authentication failed: {e}", code="AI_UNAVAILABLE") from e
+                raise AIServiceUnavailableError("AI provider authentication failed.", code="AI_UNAVAILABLE") from e
             elif "connection" in err_str or "network" in err_str:
-                raise AIServiceUnavailableError(f"AI provider connection failed: {e}", code="AI_UNAVAILABLE") from e
+                raise AIServiceUnavailableError("AI provider connection failed.", code="AI_UNAVAILABLE") from e
             elif "parse" in err_str or "json" in err_str or "schema" in err_str:
-                raise AIInvalidOutputError(f"AI provider returned malformed output: {e}") from e
+                raise AIInvalidOutputError("AI provider returned malformed output.") from e
             else:
-                raise AIServiceUnavailableError(f"AI provider error: {e}", code="AI_UNAVAILABLE") from e
+                raise AIServiceUnavailableError("AI provider request failed.", code="AI_UNAVAILABLE") from e
 
     def _validate_and_sanitize_candidates(
         self,
@@ -459,6 +491,14 @@ def _confirmed_deadline(result, occurred_at, warnings):
     Date-only deadlines, business-day calendars and unknown communication dates
     remain editable suggestions requiring human confirmation (AI_CONTRACT v1).
     """
+    from backend.app.services.intelligence.extraction import _impossible_date
+    source = getattr(result, "raw_source_text", "") or ""
+    if _impossible_date(source):
+        warnings.append("Impossible source date. Confirm the intended date; no normalization was applied.")
+        return None
+    if re.search(r"\bif\b.*\b(?:confirm|approv|receiv)", source, re.I | re.S):
+        warnings.append("Conditional trigger is unconfirmed. A message date cannot establish that it occurred.")
+        return None
     deadline = getattr(result, "deadline", None)
     if deadline is None:
         warnings.append("No confirmed deadline; add a date during review.")

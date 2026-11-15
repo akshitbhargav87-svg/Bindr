@@ -165,6 +165,24 @@ class MockAIProvider(AIProvider):
             raw_source_text=text,
         )
 
+    def extract_commitments(self, text, metadata=None):
+        """Explicitly offline enumeration fixture; never a replacement for live inference."""
+        enumerated = re.findall(r"(?m)^\s*\d+[.)]\s*(.+)$", text)
+        if not enumerated:
+            return [self.extract_commitment(text, metadata)]
+        results = []
+        for line in enumerated:
+            result = self.extract_commitment(line, metadata)
+            if result.commitment_category == CommitmentCategory.NO_COMMITMENT and re.search(r"\bwill\b", line, re.I):
+                amount, currency = self._extract_amount_currency(line)
+                result = CommitmentExtractionResult(commitment_category=CommitmentCategory.OTHER,
+                    commitment_description=line, amount=amount, currency=currency,
+                    supporting_quotation=line, commitment_type=CommitmentType.EXPLICIT,
+                    user_confirmation_required=True, deadline=self._extract_duration_deadline(line))
+            result.raw_source_text = text
+            results.append(result)
+        return results
+
     def _detect_company(self, text: str, metadata: Optional[SourceMetadata]) -> Optional[str]:
         if metadata and metadata.sender:
             return metadata.sender

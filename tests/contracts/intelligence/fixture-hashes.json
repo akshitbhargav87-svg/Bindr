@@ -1,0 +1,4 @@
+{
+  "tests/contracts/intelligence/canonical-inputs.json": "221798e0c9be75d95aa111b1f31dd951a01d2408b76ed9dcce9ec6c816dee364",
+  "tests/contracts/intelligence/expected-semantics.json": "a1527184304a6c1e8325900f9f0e3dce25165f493861f03bd3ada3b1f7214b6a"
+}

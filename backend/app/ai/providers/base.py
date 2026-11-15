@@ -28,6 +28,11 @@ class AIConnectionError(AIProviderError):
     pass
 
 
+class AITimeoutError(AIConnectionError):
+    """A transport deadline elapsed; callers must explicitly decide whether to retry."""
+    pass
+
+
 class AIRateLimitError(AIProviderError):
     """Raised when API quota or rate limits are exceeded."""
     pass

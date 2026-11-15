@@ -18,6 +18,7 @@ from backend.app.ai.providers.base import (
     AIRateLimitError,
     AIResponseParsingError,
     AIProviderError,
+    AITimeoutError,
 )
 from backend.app.ai.schemas import CommitmentExtractionResult, SourceMetadata
 from backend.app.ai.prompts import SYSTEM_PROMPT_PROMISE_EXTRACTOR, EXTRACTION_USER_PROMPT_TEMPLATE
@@ -127,11 +128,12 @@ class MetaProvider(AIProvider):
                 timeout=self.timeout,
             )
         except requests.exceptions.Timeout as e:
-            raise AIConnectionError(f"Request to Meta API timed out after {self.timeout}s: {e}") from e
+            raise AITimeoutError("The AI provider transport deadline elapsed.") from e
         except requests.exceptions.ConnectionError as e:
-            raise AIConnectionError(f"Failed to connect to Meta API: {e}") from e
+            raise AIConnectionError("The AI provider could not be reached.") from e
         except Exception as e:
-            raise AIProviderError(f"Unexpected connection failure with Meta API: {e}") from e
+            raise AIProviderError("The AI provider transport failed.") from e
+
 
         # Handle HTTP status codes
         if response.status_code in (401, 403):
@@ -174,6 +176,40 @@ class MetaProvider(AIProvider):
             raise AIResponseParsingError(f"Failed to parse Meta response as JSON: {e}") from e
         except Exception as e:
             raise AIResponseParsingError(f"Validation failed on model response: {e}") from e
+
+    def extract_commitments(self, text, metadata=None):
+        """One bounded request for all obligations; single-result API stays unchanged."""
+        from backend.app.ai.proposals import StructuredProposalProvider
+        from backend.app.services.intelligence.extraction import ProposalEngine
+        request = {"case_id": "legacy-boundary", "request_id": metadata.extra.get("request_id", "legacy-extraction") if metadata else "legacy-extraction", "timeout_seconds": self.timeout,
+                   "evidence": [{"evidence_id": "source", "segments": [{"text": text}]}]}
+        proposal = ProposalEngine(StructuredProposalProvider(self)).extract(request)
+        results = []
+        for c in proposal["candidates"]:
+            if c["condition"]["trigger"] or c["relation"]["kind"] == "cancellation":
+                # V1 cannot persist the new semantic states. Fail closed rather
+                # than confirming a contingent/historical claim as active fact.
+                raise AIResponseParsingError("This conditional or cancelled proposal requires v2 semantic review. The original is retained.")
+            temporal = c["temporal"]
+            if c['terms']['amount_minor'] is not None:
+                from decimal import Decimal
+                legacy_amount = c['terms']['amount_minor'] / 100
+                if Decimal(str(legacy_amount)) * 100 != c['terms']['amount_minor']:
+                    raise AIResponseParsingError("This amount requires v2 integer-money review to preserve precision.")
+            warnings = c["warnings"] + [s for s in [temporal["wording"]] if s]
+            if c["condition"]["trigger"]:
+                warnings.append("Conditional: " + c["condition"]["trigger"])
+            if c["relation"]["kind"] != "new":
+                warnings.append(c["relation"]["kind"] + ": " + c["relation"]["explanation"])
+            results.append(CommitmentExtractionResult(
+                commitment_category=c["terms"]["kind"] if c["terms"]["kind"] != "service" else "other",
+                commitment_description=c["terms"]["description"],
+                amount=c["terms"]["amount_minor"] / 100 if c["terms"]["amount_minor"] is not None else None,
+                currency=c["terms"]["currency"], supporting_quotation=c["sources"][0]["quote"],
+                commitment_type="inferred", user_confirmation_required=True,
+                deadline={"deadline_type": "absolute_date", "absolute_date": c["terms"]["due_at"], "raw_deadline_text": temporal["wording"]} if c["terms"]["due_at"] else {},
+                missing_or_ambiguous_fields=warnings, raw_source_text=text))
+        return results or [CommitmentExtractionResult(raw_source_text=text)]
 
     def _normalize_and_validate_output(
         self,
