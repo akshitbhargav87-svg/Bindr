@@ -7,10 +7,10 @@ import { useWorkspace } from '../../state/Workspace';
 export function PageHeading({title, description, children}: {title: string; description?: string; children?: ReactNode}) {
   return <div className="workspace-heading"><div><h1>{title}</h1>{description && <p>{description}</p>}</div>{children}</div>;
 }
-export function AddPromise({label = 'Add a promise'}: {label?: string}) {return <Link to="/app/upload" className="button button-primary"><span aria-hidden="true">+</span> {label}</Link>;}
-export function EmptyWorkspace() {
+export function AddPromise({label = 'Add a promise', to = '/app/upload'}: {label?: string; to?: string}) {return <Link to={to} className="button button-primary"><span aria-hidden="true">+</span> {label}</Link>;}
+export function EmptyWorkspace({addPath = '/app/upload'}: {addPath?: string} = {}) {
   const w = useWorkspace();
-  return <section className="workspace-empty"><div className="empty-record-art" aria-hidden="true"><div/><div><img src="/bindr-mark.svg" alt=""/><span/><span/><FileCheck2 size={27}/></div></div><h2>Your first promise starts here.</h2><p>Bring the message. Confirm what was promised.<br/>Keep the deadline and the proof together.</p><AddPromise label="Add your first promise"/>{w.isMock && <Button variant="text" onClick={() => w.chooseView('sample')}>Explore sample cases <ArrowRight size={17}/></Button>}</section>;
+  return <section className="workspace-empty"><div className="empty-record-art" aria-hidden="true"><div/><div><img src="/bindr-mark.svg" alt=""/><span/><span/><FileCheck2 size={27}/></div></div><h2>Your first promise starts here.</h2><p>Bring the message. Confirm what was promised.<br/>Keep the deadline and the proof together.</p><AddPromise label="Add your first promise" to={addPath}/>{w.isMock && <Button variant="text" onClick={() => w.chooseView('sample')}>Explore sample cases <ArrowRight size={17}/></Button>}</section>;
 }
 export function LoadingWorkspace() {return <div className="workspace-loading" role="status" aria-label="Loading workspace"><span className="loading-label"><RefreshCw size={18}/> Loading your records…</span><div className="skeleton-summary" aria-hidden="true"><i/><i/><i/></div><div className="skeleton-rows" aria-hidden="true">{[1,2,3,4].map(n => <div key={n}><i/><i/><i/></div>)}</div></div>;}
 export function WorkspaceError() {

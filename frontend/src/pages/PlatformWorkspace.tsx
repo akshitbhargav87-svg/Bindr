@@ -51,10 +51,10 @@ export default function PlatformWorkspace(){
   function update(key:string,value:string){setParams(old=>{const next=new URLSearchParams(old);if(value && value!=='All')next.set(key,value);else next.delete(key);return next;},{replace:true});}
   return <>
     <PageHeading title={allCases ? 'All your promises. On record.' : 'A little less chasing.'}
-      description={allCases ? 'Find a case, check the date, and keep the story together.' : 'Your promises, deadlines, and next steps—in one place.'}><AddPromise/></PageHeading>
+      description={allCases ? 'Find a case, check the date, and keep the story together.' : 'Your promises, deadlines, and next steps—in one place.'}><AddPromise to="/app/tools/capture-v2"/></PageHeading>
     {error && <section className="workspace-empty error-state" role="alert"><FolderOpen size={36}/><h2>Your records couldn’t load.</h2><p>{error}</p><Button onClick={()=>void load()}><RefreshCw size={17}/> Try again</Button></section>}
     {loading && !cases && <LoadingWorkspace/>}
-    {cases && !cases.length && !error && <EmptyWorkspace/>}
+    {cases && !cases.length && !error && <EmptyWorkspace addPath="/app/tools/capture-v2"/>}
     {cases && cases.length>0 && <>
       {!allCases && <section className="summary-strip" aria-label="Workspace summary">
         <Link to="/app/cases?status=Open"><span>Open cases <ArrowRight size={16}/></span><strong>{rows.filter(c=>c.status!=='Resolved').length+earlier.filter(c=>c.status!=='Resolved').length}</strong><small>Promises still to follow through</small></Link>

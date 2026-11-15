@@ -4,7 +4,7 @@
 
 [Deployment URL](https://bindr-tor2633xpq-el.a.run.app) · [Editable flowcharts](docs/diagrams/README.md) · [Integration status](docs/intelligence/COMBINED_MVP_STATUS.md)
 
-**Branch status:** the latest account/platform work, original-UI restoration, UI refinements and editable diagrams are on [`codex/qa-integration`](https://github.com/akshitbhargav87-svg/Bindr/tree/codex/qa-integration). The last audited `main` is the earlier `893b804` release; it does not contain these updates until the integration PR is merged. A Git merge does not deploy the website. See the [repository audit](docs/REPOSITORY_AUDIT_2026-11-15.md) and [documentation index](docs/README.md).
+**Branch status:** the latest account/platform work, original-UI restoration, UI refinements and editable diagrams are on [`codex/qa-integration`](https://github.com/akshitbhargav87-svg/Bindr/tree/codex/qa-integration). The last audited `main` is the earlier `893b804` release; it does not contain these updates until the integration PR is merged. A Git merge does not deploy the website. See the [repository audit](docs/REPOSITORY_AUDIT_2026-11-15.md) and [documentation index](docs/README.md) and the [post-archive retest](docs/RETEST_2026-11-15_POST_ARCHIVE.md).
 
 Companies promise refunds, replacements and service fixes across messages and documents. When dates change, the proof gets scattered. Bindr keeps the original communication, reviewed promises, revisions and actual outcomes together.
 
