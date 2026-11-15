@@ -2,6 +2,7 @@
 from copy import deepcopy
 import json
 from pathlib import Path
+import re
 import pytest
 
 pytest.importorskip('backend.app.api.v2.reviews',reason='Combined test requires Track A branch')
@@ -20,9 +21,11 @@ class CombinedEngine(AIModuleAdapter):
         candidates=[]
         for source in request['evidence']:
             for i,line in enumerate(source['text'].splitlines()):
-                if not line.strip():continue
+                if not line.strip() or not re.search(r'\bwill\b',line,re.I):continue
                 c=candidate(line,eid=source['evidence_id'],cid='c'+str(i))
                 c['terms']['description']=line
+                amount=re.search(r'₹(\d+)',line)
+                c['terms'].update(kind='refund' if 'refund' in line.lower() else 'service',amount_minor=int(amount[1])*100 if amount else None,currency='INR' if amount else None)
                 c['sources'][0]['page']=1
                 candidates.append(c)
         return super().extract_proposals_v2(request,provider=FixtureProvider({**result(),'candidates':candidates}))
@@ -77,3 +80,26 @@ def test_platform_abstains_without_fabricating_legal_or_foreign_facts():
     request={'schema_version':2,'question':'Show another account','snapshot':{'case_id':'case-a','version':1,'sources':[{'citation_id':'e1:page:1','evidence_id':'e1','page':1,'text':'We will refund ₹500.'}]},'tools':[]}
     answer=AIModuleAdapter().answer_case_v2(request)
     assert answer['status']=='insufficient_evidence' and answer['citations']==[]
+
+
+@pytest.mark.parametrize('selected',[[0,1,2,3],[0,2]],ids=['four-obligations','subset-review'])
+def test_actual_v2_four_airtel_candidates_keep_money_dates_sources_and_review_subset(client,selected):
+    app.dependency_overrides[get_intelligence]=lambda:CombinedEngine()
+    lines=['Your ₹799 recharge refund will be completed by November 17, 2026.',
+           'Your broadband connection will be restored by November 16, 2026.',
+           'A ₹200 goodwill credit will be added to your account by November 19, 2026.',
+           'Our technician will visit your home on November 15, 2026.']
+    cid=post(client,'/cases',{'title':'Four obligations','merchant_name':'Airtel'},'four-case').json()['case']['id']
+    uploaded=client.post(f'/api/v2/cases/{cid}/evidence',headers={'Idempotency-Key':'four-source'},files={'file':('airtel.txt','\n'.join(lines).encode(),'text/plain')},data={'expected_version':1,'communication':'{}'})
+    eid=uploaded.json()['evidence']['id']
+    extracted=post(client,f'/cases/{cid}/extractions',{'expected_version':2,'evidence_ids':[eid]},'four-extract');assert extracted.status_code==201,extracted.text
+    p=extracted.json()['proposal'];assert len(p['candidates'])==4
+    dates=['2026-11-17','2026-11-16','2026-11-19','2026-11-15']
+    decisions=[]
+    for i in selected:
+        c=p['candidates'][i]
+        decisions.append({'candidate_id':c['candidate_id'],'action':'confirm','edited_terms':{**c['terms'],'due_at':dates[i]+'T18:00:00+05:30'},'deadline_override_reason':'Explicit reviewed source date/time'})
+    review=post(client,f'/cases/{cid}/reviews',{'expected_version':3,'proposal_id':p['proposal_id'],'decisions':decisions},'four-review');assert review.status_code==200,review.text
+    rows=client.get(f'/api/v2/cases/{cid}').json()['obligations'];assert len(rows)==len(selected)
+    for i in selected:
+        row=next(o for o in rows if o['terms']['description']==lines[i]);assert row['sources'][0]['quote']==lines[i];assert row['sources'][0]['evidence_id']==eid;assert row['terms']['amount_minor']==[79900,None,20000,None][i];assert row['terms']['due_at'].startswith(dates[i])
