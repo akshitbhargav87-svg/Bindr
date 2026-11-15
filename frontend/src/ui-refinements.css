@@ -1,0 +1,49 @@
+/* Targeted polish of the existing product. Inter 16/26 body, 14/24 help. */
+.brand,.landing .brand,.workspace .brand{align-items:baseline;gap:.06em;line-height:1;letter-spacing:-.045em;white-space:nowrap}
+.brand>img,.landing .brand>img,.workspace .brand>img,.landing .site-footer .brand>img,.auth-page.landing .brand>img{display:block;align-self:baseline;width:.72em;height:.93em;object-fit:contain}
+.brand>span{display:inline-block;line-height:1}.brand-period{letter-spacing:0}
+.workspace .workspace-label{margin:28px 12px 22px;font:400 16px/26px var(--font-sans)}
+.workspace .workspace-label small{margin-top:2px;font:400 14px/22px var(--font-sans)}
+.landing .brand-uber .company-brand img{width:96px;height:34px}.landing .brand-zomato .company-brand img{width:124px;height:32px}
+.workspace .account-avatar{display:inline-flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;min-height:48px;border:1px solid transparent;border-radius:28px;color:var(--color-ink);font:400 16px/24px var(--font-sans);transition:background .18s,border-color .18s}
+.workspace .account-avatar:hover{background:var(--color-canvas);border-color:var(--color-line)}
+.workspace .account-avatar>span{width:36px;height:36px;flex-shrink:0;font:500 14px/22px var(--font-sans)}
+.workspace .account-avatar>strong{max-width:22ch;font:400 16px/24px var(--font-sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.workspace .workspace-location{font:400 14px/24px var(--font-sans)}.workspace .workspace-location strong{font-weight:500}
+.workspace .settings-layout{font:400 16px/26px var(--font-sans);gap:32px}
+.workspace .settings-group{padding:28px;border-radius:12px;min-width:0;margin:0}
+.workspace .settings-group>header{margin:0;padding:0 0 24px;gap:14px;align-items:flex-start}
+.workspace .settings-group>header h2{font:800 24px/32px var(--font-display);letter-spacing:-.5px}
+.workspace .settings-group>header p{font:400 14px/24px var(--font-sans);margin-top:6px}
+.workspace .settings-group dl>div{padding:20px 0;gap:20px;font:400 16px/26px var(--font-sans)}
+.workspace .settings-group dt,.workspace .settings-group dd{font:400 16px/26px var(--font-sans);letter-spacing:normal}
+.workspace .settings-group dd>span{font:400 14px/24px var(--font-sans);margin-top:2px}
+.workspace .settings-group .account-security-row,.workspace .settings-group .settings-toggle-row{padding:20px 0;gap:24px;border-top:0;border-bottom:1px solid var(--color-line);align-items:center}
+.workspace .settings-group .account-security-row>div,.workspace .settings-group .settings-toggle-row>div{min-width:0;flex:1}
+.workspace .settings-group .account-security-row strong,.workspace .settings-group .settings-toggle-row strong{display:block;font:400 16px/26px var(--font-sans);letter-spacing:normal}
+.workspace .settings-group .account-security-row p,.workspace .settings-group .settings-toggle-row p,.workspace .settings-group .settings-note,.workspace .settings-group .mfa-setup p{font:400 14px/24px var(--font-sans);letter-spacing:normal;color:var(--color-muted)}
+.workspace .settings-group .account-security-row p,.workspace .settings-group .settings-toggle-row p{margin-top:6px}
+.workspace .settings-group .account-security-row .button,.workspace .settings-group .auth-form .button,.workspace .settings-group .security-actions .button{min-height:48px;font:500 16px/24px var(--font-sans);white-space:normal;text-align:center;padding:11px 16px}
+.workspace .settings-group .security-status{font:400 14px/22px var(--font-sans);padding:6px 10px;border-radius:6px}
+.workspace .settings-group .security-status.is-disabled{background:var(--color-canvas);color:var(--color-muted)}
+.workspace .settings-group .auth-field{font:400 16px/26px var(--font-sans);gap:8px}
+.workspace .settings-group .auth-field input{font:400 16px/24px var(--font-sans);min-height:48px;border-radius:8px}
+.workspace .settings-group .security-actions{gap:12px;margin-top:24px;padding-top:4px}
+.workspace .settings-group>.button-text{margin-top:12px;padding-left:0;color:var(--color-indigo);font:400 16px/26px var(--font-sans)}
+.workspace .settings-group .settings-note{margin-top:20px;max-width:70ch}
+.workspace .settings-group .mfa-setup{padding:20px;border-radius:10px}.workspace .settings-group .mfa-setup code{font:400 14px/24px var(--font-mono)}
+.workspace .settings-aside{border-radius:12px;padding:28px}.workspace .settings-aside>p{font:400 16px/26px var(--font-sans)}
+.capture-case-fields{align-items:start}.capture-case-fields .capture-label:first-child{justify-content:flex-start}
+.capture-label-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-height:24px;font:500 16px/24px var(--font-sans)}
+.capture-label-title .label-optional{font:400 14px/22px var(--font-sans)}
+.workspace :is(input:not([type=checkbox]):not([type=hidden]),textarea,select){transition:border-color .18s,box-shadow .18s,background .18s}
+.workspace :is(.capture-label input,.capture-label textarea,.auth-field input):focus-visible{border-color:var(--color-indigo);box-shadow:0 0 0 3px #3d4dd610;outline-offset:1px}
+.workspace :is(.button,.sidebar-link,.case-row,.workspace-text-link){transition:background .18s,border-color .18s,color .18s,box-shadow .18s,transform .18s}
+.workspace .button-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px #3d4dd61c}.workspace .button:active:not(:disabled){transform:translateY(0)}
+.workspace .settings-switch-track,.workspace .settings-switch-track>i{transition:background .2s,transform .2s}
+.workspace .settings-saved{animation:ui-soft-in .22s ease-out}
+.workspace-main{animation:ui-soft-in .24s ease-out}
+.settings-groups>.settings-group{animation:ui-soft-in .28s ease-out both}.settings-groups>.settings-group:nth-child(2){animation-delay:40ms}.settings-groups>.settings-group:nth-child(3){animation-delay:80ms}
+@keyframes ui-soft-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media(max-width:600px){.workspace .settings-group,.workspace .settings-aside{padding:20px}.workspace .settings-group dl>div{gap:6px}.workspace .settings-group .account-security-row{flex-wrap:wrap;gap:12px}.workspace .account-avatar>strong{max-width:13ch;font-size:14px}.workspace .account-avatar{gap:8px;padding-right:6px}.workspace .settings-group .account-security-row>.button{max-width:100%}.capture-label-title{gap:8px}}
+@media(prefers-reduced-motion:reduce){.workspace-main,.settings-groups>.settings-group,.workspace .settings-saved{animation:none}.workspace :is(.button,.sidebar-link,.case-row,.workspace-text-link,input,textarea,select,.settings-switch-track,.settings-switch-track>i,.account-avatar){transition:none}.workspace .button:hover{transform:none}}

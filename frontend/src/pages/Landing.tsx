@@ -55,7 +55,6 @@ export default function Landing() {
       <section className="hero container">
         <div className="hero-main">
           <div className="hero-copy">
-            <span className="consumer-tag"><span/> For the follow-through.</span>
             <h1 aria-label="Keep companies' promises on record."><span className="headline-line">Keep companies'</span><span className="headline-line">promises</span><span className="headline-line headline-accent">on record.<svg viewBox="0 0 390 15" aria-hidden="true"><path d="M4 10Q180 -1 386 7"/></svg></span></h1>
             <p>The refund. The replacement. The date that moved.<br className="desktop-break"/> Keep what they promised—and the proof.</p>
             <div className="hero-actions"><Link to="/app/upload" className="button button-primary">Track a promise <ArrowRight size={20}/></Link><a href="#product-preview" className="quiet-link">See the record <ArrowRight size={19}/></a></div>

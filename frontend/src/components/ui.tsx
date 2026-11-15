@@ -7,4 +7,4 @@ export type Status = 'Overdue' | 'Due today' | 'Active' | 'Resolved' | 'Needs a 
 const icons = {'Overdue': ClockAlert, 'Due today': CalendarClock, 'Active': Circle, 'Resolved': CheckCircle2, 'Needs a date': CalendarQuestion, 'Needs review': Info};
 export function StatusLabel({status}: {status: Status}) {const Icon = icons[status]; return <span className={`status status-${status.toLowerCase().replaceAll(' ', '-')}`}><Icon size={13}/>{status}</span>;}
 export function Alert({children}: {children: ReactNode}) {return <div className="alert" role="status"><Info size={18}/><div>{children}</div></div>;}
-export function Brand({compact = false}: {compact?: boolean}) {return <span className="brand"><img src="/bindr-mark.svg" alt="" width="23" height="30"/>{!compact && <span>bindr<span className="brand-period">.</span></span>}</span>;}
+export function Brand({compact = false}: {compact?: boolean}) {return <span className="brand" role="img" aria-label="Bindr"><img src="/bindr-mark.svg" alt="" width="23" height="30"/>{!compact && <span aria-hidden="true">indr<span className="brand-period">.</span></span>}</span>;}

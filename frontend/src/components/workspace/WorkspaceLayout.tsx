@@ -21,7 +21,7 @@ export default function WorkspaceLayout() {
   return <div className="workspace">
     <a className="skip-link" href="#workspace-main">Skip to content</a>
     <aside className="workspace-sidebar"><Link to="/" aria-label="Bindr home" className="sidebar-brand"><Brand/></Link>
-      <div className="workspace-label"><span className="workspace-avatar"><img src="/bindr-mark.svg" alt=""/></span><span>Your workspace<small>Personal</small></span></div>
+      <div className="workspace-label"><span>Your workspace<small>Personal</small></span></div>
       <Link to="/app/upload" className="button button-primary add-promise"><Plus size={18}/> Add a promise</Link>
       <nav aria-label="Workspace navigation">{nav.map(({to, label, Icon, end}) => <NavLink key={to} to={to} end={end} className={({isActive}) => `sidebar-link ${isActive || label==='Cases' && path==='/app/archived' ? 'is-active' : ''}`}><Icon size={20}/><span>{label === 'Cases' ? 'All cases' : label}</span>{label === 'Cases' && cases.length > 0 && <span className="nav-count">{cases.length}</span>}</NavLink>)}{tools.slice(0,2).map(({to,label,Icon})=><NavLink to={to} key={to} className={({isActive})=>`sidebar-link ${isActive ? 'is-active' : ''}`}><Icon size={20}/>{label}</NavLink>)}</nav>
       <div className="sidebar-bottom"><NavLink to="/app/drafts" className={({isActive})=>`sidebar-link ${isActive ? 'is-active' : ''}`}><FilePenLine size={19}/>Complaint drafts</NavLink><NavLink to="/app/help" className="sidebar-link"><CircleHelp size={19}/> Help & definitions</NavLink><Link to="/" className="sidebar-home">Back to Bindr <ArrowUpRight size={16}/></Link></div>

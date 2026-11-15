@@ -1,3 +1,4 @@
+import DateField from '../ui/DateField';
 import {useEffect,useRef,useState} from 'react';
 import {Button} from '../ui';
 import {sourceDiff,reviewedAmount,formatAuthoritativeMoney} from '../../api/workflow';
@@ -52,7 +53,7 @@ export default function ProposalReview({proposal,previous={},busy,onConfirm,onSo
       <dl>{sourceDiff(c,predecessor ? previous[predecessor] : undefined).map(d=><div key={d.label}><dt>{d.label}</dt><dd>{String(d.before ?? 'Unknown')} → {String(d.after ?? 'Unknown')}</dd></div>)}</dl>
       {c.condition.trigger && <p role="status">Condition: {c.condition.trigger} · {c.condition.status}. A fixed date needs confirmation of the trigger.</p>}
       <p>Date wording: {c.temporal.wording ?? 'No date'} · {c.temporal.parse_status}</p><p>Communication anchor: {c.temporal.anchor ?? 'Unknown'}</p>
-      <label>Confirmed date override (Asia/Kolkata)<input type="date" value={dates[id] ?? ''} onChange={e=>{setDates({...dates,[id]:e.target.value});setReviewed(false);}}/></label>
+      <label>Confirmed date override (Asia/Kolkata)<DateField label="Confirmed deadline"  value={dates[id] ?? ''} onChange={dateValue=>{setDates({...dates,[id]:dateValue});setReviewed(false);}}/></label>
       {dates[id] && <><label>Explicit confirmed time (optional, Asia/Kolkata)<input type="time" value={times[id] ?? ''} onChange={e=>{setTimes({...times,[id]:e.target.value});setReviewed(false);}}/></label><p>A date alone stays a date proposal. Enter a reviewed time only when you intend to confirm an exact deadline; no midnight is invented.</p></>}
       {dates[id] && <label>Why this date?<input maxLength={1000} value={reasons[id] ?? ''} onChange={e=>{setReasons({...reasons,[id]:e.target.value});setReviewed(false);}}/></label>}
       {c.warnings.map((w,i)=><p role="status" key={i}>{w}</p>)}{c.sources.map((s,i)=><blockquote key={i}><p>{s.quote}</p><cite>{s.evidence_id}{s.page ? ` · page ${s.page}` : ''}{s.message_id ? ` · message ${s.message_id}` : ''}{s.start_ms!=null ? ` · ${s.start_ms/1000}–${(s.end_ms ?? s.start_ms)/1000}s` : ''}</cite>{onSource && <Button variant="text" onClick={()=>onSource(s.evidence_id,s.quote)}>View original source</Button>}</blockquote>)}
