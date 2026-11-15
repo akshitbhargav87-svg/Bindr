@@ -1,0 +1,1 @@
+Track A versions of two conflicting source handoff documents preserved verbatim during integration. Shared documents retain the Track B ZIP copies. Original QA verdicts are unchanged. A head: ba2e3894a367d1a3f6470a6d64e90af8a8d366c1.

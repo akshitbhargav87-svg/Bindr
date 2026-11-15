@@ -82,6 +82,8 @@ def login(payload: Login, request: Request, response: Response, db: Session = De
         except IntegrityError:
             db.rollback()
             account = db.query(Account).filter(Account.provider_uid == uid).one()
+    from backend.app.services.platform.accounts import ensure_active
+    ensure_active(db, account.id)
     account.email = user["email"]
     account.display_name = user.get("displayName", "")[:200]
     raw = secrets.token_urlsafe(48)

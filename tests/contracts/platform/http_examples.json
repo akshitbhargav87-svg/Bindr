@@ -1,0 +1,314 @@
+{
+  "scope": "Synthetic platform contract examples; no real model/provider/browser acceptance.",
+  "interface_version": "v2 / platform packet 1",
+  "operations": [
+    {
+      "method": "POST",
+      "path": "/api/v2/cases",
+      "request": {
+        "title": "Synthetic contract refund",
+        "merchant_name": "Example"
+      },
+      "operation_key": "case-1",
+      "status": 201,
+      "response": {
+        "case": {
+          "id": "14143842-fcaf-44c9-815a-17565c809396",
+          "title": "Synthetic contract refund",
+          "merchant_name": "Example",
+          "status": "open",
+          "version": 1,
+          "resolution_note": null,
+          "resolved_at": null,
+          "created_at": "2026-11-15T01:31:18Z"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/cases",
+      "request": {
+        "title": "Synthetic contract refund",
+        "merchant_name": "Example"
+      },
+      "operation_key": "case-1",
+      "status": 201,
+      "response": {
+        "case": {
+          "created_at": "2026-11-15T01:31:18Z",
+          "id": "14143842-fcaf-44c9-815a-17565c809396",
+          "merchant_name": "Example",
+          "resolution_note": null,
+          "resolved_at": null,
+          "status": "open",
+          "title": "Synthetic contract refund",
+          "version": 1
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/cases",
+      "request": {
+        "title": "Changed payload",
+        "merchant_name": "Example"
+      },
+      "operation_key": "case-1",
+      "status": 409,
+      "response": {
+        "error": {
+          "code": "IDEMPOTENCY_CONFLICT",
+          "message": "Operation key was already used with different data.",
+          "details": [],
+          "request_id": "276bddc5-daf8-4611-ba2e-751a928a50dd"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/capture-drafts",
+      "request": {
+        "capture": {
+          "text": "Synthetic account-bound capture",
+          "communication": {
+            "date": "2026-11-14",
+            "precision": "date",
+            "timezone": "Asia/Kolkata"
+          }
+        }
+      },
+      "operation_key": "draft-1",
+      "status": 201,
+      "response": {
+        "draft": {
+          "id": "7cffcc6e-1432-4815-83c9-37fe0b25e0a9",
+          "version": 1,
+          "capture": {
+            "communication": {
+              "date": "2026-11-14",
+              "original_wording": null,
+              "precision": "date",
+              "provenance": "user_confirmed",
+              "time": null,
+              "timezone": "Asia/Kolkata"
+            },
+            "evidence_ids": [],
+            "text": "Synthetic account-bound capture"
+          },
+          "warnings": [],
+          "updated_at": "2026-11-15T01:31:18Z"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/capture-drafts/7cffcc6e-1432-4815-83c9-37fe0b25e0a9",
+      "request": null,
+      "operation_key": null,
+      "status": 200,
+      "response": {
+        "draft": {
+          "id": "7cffcc6e-1432-4815-83c9-37fe0b25e0a9",
+          "version": 1,
+          "capture": {
+            "communication": {
+              "date": "2026-11-14",
+              "original_wording": null,
+              "precision": "date",
+              "provenance": "user_confirmed",
+              "time": null,
+              "timezone": "Asia/Kolkata"
+            },
+            "evidence_ids": [],
+            "text": "Synthetic account-bound capture"
+          },
+          "warnings": [],
+          "updated_at": "2026-11-15T01:31:18Z"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/cases/14143842-fcaf-44c9-815a-17565c809396/manual-promises",
+      "request": {
+        "expected_version": 1,
+        "origin": "user_attested",
+        "confirmed": true,
+        "terms": {
+          "kind": "refund",
+          "description": "Synthetic ₹500 refund",
+          "amount_minor": 50000,
+          "currency": "INR",
+          "due_at": null
+        }
+      },
+      "operation_key": "manual-1",
+      "status": 201,
+      "response": {
+        "obligation_id": "49e62795-26a6-45f7-9565-ec0bcb7da61c",
+        "case_version": 2
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/cases/14143842-fcaf-44c9-815a-17565c809396/outcomes",
+      "request": {
+        "expected_version": 2,
+        "kind": "partial",
+        "allocations": [
+          {
+            "obligation_id": "49e62795-26a6-45f7-9565-ec0bcb7da61c",
+            "amount_minor": 20000
+          }
+        ],
+        "received_at": "2026-01-01T00:00:00Z"
+      },
+      "operation_key": "receipt-1",
+      "status": 201,
+      "response": {
+        "event_id": "cc64ef86-f7f6-47b6-8148-47c747cbac3c",
+        "case_version": 3
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/cases/14143842-fcaf-44c9-815a-17565c809396",
+      "request": null,
+      "operation_key": null,
+      "status": 200,
+      "response": {
+        "case": {
+          "id": "14143842-fcaf-44c9-815a-17565c809396",
+          "title": "Synthetic contract refund",
+          "merchant_name": "Example",
+          "version": 3
+        },
+        "version": 3,
+        "obligations": [
+          {
+            "id": "49e62795-26a6-45f7-9565-ec0bcb7da61c",
+            "root_id": "49e62795-26a6-45f7-9565-ec0bcb7da61c",
+            "predecessor_id": null,
+            "semantic_status": "undated",
+            "state": "active",
+            "origin": "user_attested",
+            "terms": {
+              "amount_minor": 50000,
+              "currency": "INR",
+              "description": "Synthetic ₹500 refund",
+              "due_at": null,
+              "kind": "refund"
+            },
+            "sources": [],
+            "deadline": {},
+            "received_minor": 20000,
+            "outstanding_minor": 30000
+          }
+        ],
+        "evidence": [],
+        "legacy_commitments": [],
+        "legacy_facts_in_v2_totals": false,
+        "events": [
+          {
+            "id": "91fb9805-c62f-41de-bb88-d4e4ed56a6be",
+            "sequence": 1,
+            "case_version": 2,
+            "kind": "promise_confirmed",
+            "payload": {
+              "obligation_id": "49e62795-26a6-45f7-9565-ec0bcb7da61c",
+              "origin": "user_attested",
+              "predecessor_id": null,
+              "reason": null
+            },
+            "created_at": "2026-11-15T01:31:18Z"
+          },
+          {
+            "id": "cc64ef86-f7f6-47b6-8148-47c747cbac3c",
+            "sequence": 2,
+            "case_version": 3,
+            "kind": "partial",
+            "payload": {
+              "allocations": [
+                {
+                  "amount_minor": 20000,
+                  "currency": "INR",
+                  "obligation_id": "49e62795-26a6-45f7-9565-ec0bcb7da61c",
+                  "root_id": "49e62795-26a6-45f7-9565-ec0bcb7da61c"
+                }
+              ],
+              "corrects_event_id": null,
+              "expected_version": 2,
+              "kind": "partial",
+              "note": "",
+              "received_at": "2026-01-01T00:00:00Z",
+              "source_ids": []
+            },
+            "created_at": "2026-11-15T01:31:18Z"
+          }
+        ],
+        "projection": {
+          "status": "open",
+          "lifecycle": "open",
+          "money_by_currency": {
+            "INR": {
+              "promised_minor": 50000,
+              "received_minor": 20000,
+              "outstanding_minor": 30000
+            }
+          },
+          "health": "missing_information",
+          "as_of": "2026-11-15T01:31:18.457051+00:00",
+          "timezone": "Asia/Kolkata"
+        },
+        "capabilities": {
+          "manual": true,
+          "outcomes": true,
+          "export": true,
+          "automatic_send": false
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/cases/14143842-fcaf-44c9-815a-17565c809396/exports",
+      "request": {
+        "expected_version": 3,
+        "source_ids": [],
+        "reviewed_wording": "Synthetic reviewed wording",
+        "formats": [
+          "data"
+        ]
+      },
+      "operation_key": "export-1",
+      "status": 202,
+      "response": {
+        "export_id": "06be4a19-5a76-4785-8ab6-43328ca4b92d",
+        "job": {
+          "id": "557a0297-3d58-4206-bba9-a1b89b2ab829",
+          "state": "queued",
+          "stage": "queued",
+          "retryable": true,
+          "error": null,
+          "request_id": "557a0297-3d58-4206-bba9-a1b89b2ab829",
+          "resource": null,
+          "case_version": 3
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/cases/14143842-fcaf-44c9-815a-17565c809396",
+      "request": null,
+      "operation_key": null,
+      "status": 401,
+      "response": {
+        "error": {
+          "code": "UNAUTHENTICATED",
+          "message": "Authentication required. Active session cookie ('pk_session') or Bearer token is missing.",
+          "details": [],
+          "request_id": "06b7fdcd-569e-4587-9a8a-5979f53bba4b"
+        }
+      }
+    }
+  ]
+}

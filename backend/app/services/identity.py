@@ -66,6 +66,16 @@ class GoogleIdentity:
             raise IdentityUnavailable() from exc
 
 
+    def delete(self, uid):
+        from firebase_admin import auth
+        try:
+            auth.delete_user(uid, app=self.app)
+        except auth.UserNotFoundError:
+            return  # Idempotent retry after a lost acknowledgement.
+        except Exception as exc:
+            raise IdentityUnavailable() from exc
+
+
 @lru_cache(maxsize=1)
 def get_identity_provider():
     try:
