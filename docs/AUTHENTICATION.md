@@ -1,6 +1,6 @@
 # Account authentication: implementation and owner setup
 
-This change adds Google sign-in, email/password registration, verified-email access, password-reset links and optional authenticator-app two-factor authentication. The UI uses Bindr's existing typefaces, colours and components. This is implemented and locally tested; **Google project activation and live-provider acceptance require Akshit, the project owner**. Do not describe the change as live until the acceptance sequence below passes.
+This change adds Google sign-in, email/password registration, verified-email access, password-reset links and optional authenticator-app two-factor authentication. The UI uses Bindr's existing typefaces, colours and components. Project setup has been verified by an owner; **live-provider acceptance remains required**. See RESUME_ACCOUNT_AUTH.md for the current deployment status. Do not describe the full account launch as complete until the acceptance sequence below passes.
 
 For a forwardable checklist with checkout commands, deployment and the exact results to return, use [Login launch checklist](LOGIN_LAUNCH_CHECKLIST.md).
 
@@ -14,9 +14,9 @@ Every protected request checks the database session, Google account existence/di
 
 The legacy anonymous cookie only authorizes a separately confirmed transfer of that browser's cases after account sign-in. An atomic, unique workspace claim prevents replay to another account. It cannot log in to protected APIs. Expired or lost legacy cookies cannot recover old records automatically. Keep the existing AUTH_SECRET, database and evidence bucket during migration.
 
-## Akshit: one-time setup in the existing project
+## Project owner: one-time setup in the existing project
 
-Use **project-0021b03b-28bd-43e6-9d4**, not a new project. Tushar's Google account currently has no access to it. No account passwords or private keys need to be shared with Tushar or in chat.
+Use **project-0021b03b-28bd-43e6-9d4**, not a new project. Both Akshit and Tushar now have owner access. No account passwords or private keys need to be shared in chat.
 
 1. Open the [Firebase console](https://console.firebase.google.com/). Add Firebase to the **existing Google Cloud project** if it is not listed. Accept any required service terms personally. The site, Cloud SQL database, evidence bucket and Meta configuration remain in place.
 2. Enable **Authentication with Identity Platform** for that project. Google's managed TOTP MFA requires this upgrade. Review the displayed billing/usage terms before enabling it. See [Google's TOTP guide](https://firebase.google.com/docs/auth/web/totp-mfa).
