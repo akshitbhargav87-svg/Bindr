@@ -15,6 +15,7 @@ import re
 import shlex
 import subprocess
 import tempfile
+import time
 
 
 def command(*args, capture=False):
@@ -208,15 +209,36 @@ def main():
             "--startup-probe=httpGet.path=/health,httpGet.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=24",
             "--update-env-vars=" + ",".join(f"{k}={v}" for k, v in disabled.items()),
             *run_common)
+    # Inspect the immutable revision itself. The service's aggregate
+    # latestReadyRevisionName is not a reliable gate for a no-traffic rollout.
+    revision = None
+    for attempt in range(12):
+        revision = json.loads(gcloud("run", "revisions", "describe", new_revision,
+                                     f"--region={region}", output=True))
+        status = revision.get("status", {})
+        ready = next((c for c in status.get("conditions", [])
+                      if c.get("type") == "Ready"), {})
+        observed = str(status.get("observedGeneration"))
+        generation = str(revision.get("metadata", {}).get("generation"))
+        reconciled = observed != "None" and observed == generation
+        if reconciled and ready.get("status") == "True":
+            break
+        if reconciled and ready.get("status") == "False":
+            raise SystemExit("Revision reports not ready; live traffic was not moved. Inspect its Cloud Run logs.")
+        if attempt == 11:
+            raise SystemExit("Revision readiness is still pending; live traffic was not moved. Resume cutover without rebuilding.")
+        time.sleep(5)
     latest = describe()
-    if latest.get("status", {}).get("latestReadyRevisionName") != new_revision:
-        raise SystemExit("Expected revision is not ready; live traffic was not moved")
     # Environment order may change; compare name-indexed maps instead.
     expected_env = {e["name"]: e for e in env}
     expected_env.update({k: {"name": k, "value": v} for k, v in disabled.items()})
-    actual_env = {e["name"]: e for e in latest["spec"]["template"]["spec"]["containers"][0].get("env", [])}
+    actual_env = {e["name"]: e for e in revision["spec"]["containers"][0].get("env", [])}
     if expected_env != actual_env:
         raise SystemExit("Runtime environment differs unexpectedly; live traffic was not moved")
+    if revision.get("status", {}).get("imageDigest") != image:
+        raise SystemExit("Revision image does not match the built digest; live traffic was not moved")
+    if latest.get("status", {}).get("latestCreatedRevisionName") != new_revision:
+        raise SystemExit("Another revision was created during deployment; live traffic was not moved")
     save("revision_ready_without_traffic")
     print("7/7 Moving live traffic to the ready v2 revision", flush=True)
     command("gcloud", "run", "services", "update-traffic", "bindr",
