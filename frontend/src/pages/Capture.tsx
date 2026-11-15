@@ -14,6 +14,7 @@ import { ApiError } from '../api/types';
 export default function Capture() {
   const {session:s,setSession,reset}=useCapture();const w=useWorkspace();const navigate=useNavigate();
   const inputRef=useRef<HTMLInputElement>(null);const replaceKey=useRef<string|null>(null);const inFlight=useRef(false);
+  const saving=useRef(false);
   const [mobileTab,setMobileTab]=useState<'fields'|'source'>('fields');const [sourceIndex,setSourceIndex]=useState(0);const [dragging,setDragging]=useState(false);
   const patch=(values:Partial<typeof s>)=>setSession(previous=>({...previous,...values}));
   const updateJob=(job:CaptureJob,progress:string)=>setSession(previous=>({...previous,job,progress}));
@@ -56,6 +57,8 @@ export default function Capture() {
     }
     patch({formErrors:errors});
     if(Object.keys(errors).length)throw new Error('Review the marked fields before continuing.');
+    const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    if(sources.some(source=>source.communicationDate>today) && !window.confirm('This communication date is in the future. Check it against the original message. Keep this date for review?'))throw new Error('Review the future communication date before continuing.');
     return {company:s.company,title:s.title.trim() || `Promise from ${s.company.trim()}`.slice(0,200),sources};
   }
   async function analyze(manual=false) {
@@ -77,7 +80,7 @@ export default function Capture() {
     catch(cause){patch({error:captureError(cause)});await w.refresh();}finally{patch({pending:false});}
   }
   async function save(event:FormEvent) {
-    event.preventDefault();if(s.pending || w.offline)return;
+    event.preventDefault();if(s.pending || w.offline || saving.current)return;
     const chosen=s.fields.filter(field=>field.selected);const errors:Record<string,string>={};
     if(!s.company.trim())errors.company='Enter the company that made the promise.';
     for(const field of chosen) {try {termsFromFields(field);}catch(cause){errors[field.id]=captureError(cause);}}
@@ -85,14 +88,14 @@ export default function Capture() {
     if(!s.confirmed)errors.confirmed='Confirm that you reviewed the selected promises.';
     if(s.job?.duplicateId && !s.allowDuplicate)errors.duplicate='Open the existing case or explicitly choose to create separately.';
     patch({formErrors:errors});if(Object.keys(errors).length || !s.job)return;
-    patch({pending:true,error:null,scenario:s.scenario==='save-error' ? 'standard' : s.scenario});
+    saving.current=true;patch({pending:true,error:null,scenario:s.scenario==='save-error' ? 'standard' : s.scenario});
     try {
       await confirmCapture(s.job,s.fields,s.manual,w.isMock && s.scenario==='save-error',{company:s.company,title:s.title.trim() || chosen[0].description.slice(0,200)});
       patch({step:'saved',savedId:s.job.caseId,savedDescription:chosen.map(f=>f.description).join(' · '),evidenceOnly:false,confirmed:false});w.markIntroduced();await w.refresh();
     } catch(cause) {
       const uncertain=!(cause instanceof ApiError) && !s.manual || cause instanceof ApiError && cause.status===409;
       patch({error:captureError(cause),confirmed:false,...(uncertain ? {job:{...s.job,state:'needs-reconciliation'}} : {})});
-    } finally {patch({pending:false});}
+    } finally {saving.current=false;patch({pending:false});}
   }
   async function keepEvidence() {
     if(!s.job || s.pending || w.offline)return;patch({pending:true,error:null});

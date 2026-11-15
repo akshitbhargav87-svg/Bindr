@@ -1,0 +1,6 @@
+{
+  "id": "/", "name": "Bindr", "short_name": "Bindr", "start_url": "/app", "scope": "/", "display": "standalone",
+  "background_color": "#ffffff", "theme_color": "#3D4DD6",
+  "icons": [{"src": "/bindr-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}],
+  "share_target": {"action": "/app/share", "method": "POST", "enctype": "multipart/form-data", "params": {"title": "title", "text": "text", "url": "url", "files": [{"name":"files","accept":["image/png","image/jpeg","application/pdf","text/plain"]}]}}
+}

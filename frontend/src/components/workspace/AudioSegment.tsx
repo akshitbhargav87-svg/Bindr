@@ -1,0 +1,7 @@
+import {useEffect,useRef,useState} from 'react';
+import {Button} from '../ui';
+export default function AudioSegment({startMs,endMs,quote,loadOriginal}:{startMs:number;endMs:number;quote:string;loadOriginal:()=>Promise<Blob>}){
+  const audio=useRef<HTMLAudioElement>(null),[url,setUrl]=useState(''),[error,setError]=useState('');
+  useEffect(()=>{let active=true,objectUrl='';if(!Number.isSafeInteger(startMs) || !Number.isSafeInteger(endMs) || startMs<0 || endMs<=startMs){setError('Audio citation offsets are invalid.');return;}void loadOriginal().then(blob=>{if(!active)return;if(!['audio/mpeg','audio/mp4','audio/wav','audio/x-wav','audio/ogg'].includes(blob.type))throw new Error('Original audio format is unavailable.');objectUrl=URL.createObjectURL(blob);setUrl(objectUrl);}).catch(()=>{if(active)setError('The private original audio could not be loaded.');});return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl);};},[loadOriginal,startMs,endMs]);
+  return <section><blockquote>{quote}</blockquote><p>Transcript segment {startMs/1000}–{endMs/1000}s. Speaker attribution and wording need review against the original.</p>{error && <p role="alert">{error}</p>}{url && <><audio ref={audio} src={url} controls preload="metadata" onTimeUpdate={()=>{if(audio.current && audio.current.currentTime>=endMs/1000)audio.current.pause();}}/><Button onClick={()=>{if(audio.current){audio.current.currentTime=startMs/1000;void audio.current.play().catch(()=>setError('Choose play in the audio controls.'));}}}>Play cited segment</Button></>}</section>;
+}

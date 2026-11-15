@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3, "name": "Bindr explicit capture", "version": "0.1.0",
+  "description": "Review selected support-chat text or a screenshot after an explicit click.",
+  "permissions": ["activeTab", "scripting"],
+  "action": {"default_popup": "popup.html"},
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'"}
+}

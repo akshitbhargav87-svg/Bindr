@@ -1,0 +1,8 @@
+import {useRef,useState} from 'react';
+import {Button} from '../ui';
+export interface PrivacyAdapter {exportData:()=>Promise<{job_id:string}>;deleteData:(confirmation:string)=>Promise<{job_id:string;retention:string}>;recentAuth:boolean;retention:string;enabled:boolean}
+export default function PrivacyControls({adapter,label}:{adapter:PrivacyAdapter;label:'case'|'account'}){
+  const [confirmation,setConfirmation]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),guard=useRef(false);
+  async function act(remove:boolean){if(guard.current)return;guard.current=true;setBusy(true);try{const result=remove ? await adapter.deleteData(confirmation) : await adapter.exportData();setNotice(`Private ${remove ? 'deletion' : 'export'} job: ${result.job_id}${'retention' in result ? '. '+result.retention : ''}`);}catch{setNotice('The server did not confirm this request. Check its status before retrying.');}finally{guard.current=false;setBusy(false);}}
+  return <section className="workflow-section"><h2>Your {label} data</h2><p>Exports contain private originals and records. Share a downloaded copy only with people you choose.</p><Button disabled={busy || !adapter.enabled || !adapter.recentAuth} onClick={()=>void act(false)}>Export my {label} data</Button><p>{adapter.retention}</p><label>Type DELETE to request deletion<input value={confirmation} onChange={e=>setConfirmation(e.target.value)} autoComplete="off"/></label><Button disabled={busy || !adapter.enabled || !adapter.recentAuth || confirmation!=='DELETE'} onClick={()=>void act(true)}>Delete my {label}</Button>{!adapter.recentAuth && <p>Verify your identity again in account settings before continuing.</p>}<p role="status">{notice}</p></section>;
+}

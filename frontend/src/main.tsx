@@ -14,3 +14,4 @@ import './workspace.css';
 import './capture.css';
 import './polish.css';
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><BrowserRouter><App /></BrowserRouter></React.StrictMode>);
+if('serviceWorker' in navigator && window.isSecureContext)void navigator.serviceWorker.register('/sw.js').catch(()=>{/* Upload/paste remains available without installation. */});

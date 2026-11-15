@@ -1,0 +1,5 @@
+import {aggregateDisplay,formatAuthoritativeMoney,type Aggregate} from '../../api/workflow';
+export default function AggregateCounter({data,personalReceived,onWithdraw}:{data:Aggregate|null;personalReceived:{currency:string;amount_minor:number}[];onWithdraw?:()=>Promise<void>}){
+  const display=data ? aggregateDisplay(data) : null;
+  return <section className="workflow-section"><h2>Reported receipts</h2><p>Personal totals reflect recorded receipts and corrections. They do not establish that Bindr caused recovery.</p>{personalReceived.map(m=><p key={m.currency}>{formatAuthoritativeMoney(m)}</p>)}<h3>Participating cases</h3><p>{display?.label ?? 'Public aggregate display is disabled pending the reviewed data and privacy contract.'}</p>{display && !display.suppressed && <p>{new Intl.NumberFormat('en',{style:'percent',maximumFractionDigits:1}).format(display.rate!)} recorded as fulfilled. This is a self-selected participating sample, not a measure of every customer.</p>}<button disabled={!onWithdraw} onClick={()=>void onWithdraw?.()}>Withdraw my aggregate contribution</button></section>;
+}

@@ -1,0 +1,13 @@
+import {useEffect,useRef,useState} from 'react';
+import {Button} from '../ui';
+export interface ConnectionState {provider:string;status:'unconfigured'|'disconnected'|'connected'|'expired'|'error';canSend:boolean;canReadReplies:boolean;reason?:string}
+export interface ReviewedMessage {recipient:string;subject:string;body:string;attachmentIds:string[];caseVersion:number}
+export interface ConnectorAdapter {state:ConnectionState;connect:()=>Promise<void>;disconnect:()=>Promise<void>;sendReviewed:(message:ReviewedMessage)=>Promise<{receiptId:string;status:'accepted'|'uncertain'}>}
+/** Provider-specific routes and token custody stay in A's versioned connector adapter. */
+export default function ConnectionReview({adapter,message}:{adapter:ConnectorAdapter;message:ReviewedMessage}){
+  const [reviewed,setReviewed]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+  const guard=useRef(false),fingerprint=JSON.stringify(message);
+  useEffect(()=>setReviewed(false),[fingerprint]);
+  async function run(action:()=>Promise<unknown>){if(guard.current)return;guard.current=true;setBusy(true);try{const value=await action();setNotice(value && typeof value==='object' && 'status' in value ? `Provider receipt status: ${String(value.status)}` : 'Connection updated.');}catch{setNotice('The provider did not confirm this operation. Review connection state before retrying.');}finally{guard.current=false;setBusy(false);setReviewed(false);}}
+  return <section className="workflow-section"><h2>{adapter.state.provider}</h2><p>{adapter.state.status} · {adapter.state.reason}</p><Button disabled={busy || adapter.state.status==='unconfigured'} onClick={()=>void run(adapter.state.status==='connected' ? adapter.disconnect : adapter.connect)}>{adapter.state.status==='connected' ? 'Disconnect' : 'Connect deliberately'}</Button><h3>Review exact correspondence</h3><dl><dt>Recipient</dt><dd>{message.recipient}</dd><dt>Subject</dt><dd>{message.subject}</dd><dt>Body</dt><dd><pre>{message.body}</pre></dd><dt>Attachments</dt><dd>{message.attachmentIds.join(', ') || 'None'}</dd><dt>Case version</dt><dd>{message.caseVersion}</dd></dl><label><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/> I reviewed this recipient, content and attachments.</label><Button disabled={busy || !reviewed || adapter.state.status!=='connected' || !adapter.state.canSend} onClick={()=>void run(()=>adapter.sendReviewed(message))}>Send this reviewed message</Button><p>{adapter.state.canReadReplies ? 'Connected replies enter intake review.' : 'Reply ingestion is unavailable.'}</p><p role="status">{notice}</p></section>;
+}
