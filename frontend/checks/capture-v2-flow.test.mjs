@@ -12,6 +12,7 @@ const bundle=(await build({stdin:{contents:"export {default as Capture} from './
 const require=createRequire(import.meta.url),tick=()=>new Promise(r=>setImmediate(r));
 const realOrigin=process.env.BINDR_COMBINED_QA_ORIGIN;
 if(realOrigin && realOrigin!=='http://127.0.0.1:8033')throw new Error('Combined QA is restricted to its isolated loopback server.');
+if(realOrigin)document.cookie='bindr_csrf=; Max-Age=0; path=/';
 async function until(predicate){for(let i=0;i<80;i++){let done;await act(async()=>{await new Promise(r=>setTimeout(r,10));done=predicate();});if(done)return;}assert.fail('Expected capture state did not arrive.');}
 for(const loseResponse of [false,true])test(`actual v2 capture uses extraction version and saves once${loseResponse ? ' after an uncertain upload replay' : ''}`,async()=>{
   const server=realOrigin ? {base:realOrigin+'/api/v2',close:async()=>{}} : await serveFixture({versionedExtraction:true,platformProfile:true}),transport=globalThis.fetch,calls=[],cookies=new Map();let dropped=false,hook,owner='flow-owner';
