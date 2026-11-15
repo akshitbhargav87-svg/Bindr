@@ -56,6 +56,8 @@ Python dependencies added by A were installed in an integration-only package dir
 
 ## MVP decision and release gates
 
+**Cloud preparation update:** Owner-supplied Cloud Shell output confirms existing Firebase, GCS, Cloud SQL and real-Meta secret references. A local model key is not required for an update using those existing references. The new [existing-service updater](CLOUD_V2_UPDATE.md) prepares backup, schema migration, maintenance-only worker scheduling and explicit image cutover. It has been reviewed in source and not executed or tested here. Creating these resources does not establish real AI, account privacy, restore or product acceptance. Historical release requirements below remain recorded; the owner requested the faster rollout path without further local test runs.
+
 The user prioritized a dependable MVP rather than optional expansion. Deferred: extension pairing/publishing, WhatsApp media, advanced audio, public scoreboard/moderation, external timestamps and broader escalation routes. Existing implementations/adapters remain in source, with unsupported production actions disabled.
 
 Required before deployment:

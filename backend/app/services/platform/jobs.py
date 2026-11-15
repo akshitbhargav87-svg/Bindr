@@ -77,7 +77,7 @@ def view(row):
     }
 
 
-def run_one(factory, handlers, now=None):
+def run_one(factory, handlers, now=None, allowed_kinds=None):
     """Claim in a short transaction; handlers must use fresh authorization/version checks.
 
     A crashed send is never automatically resent. Other handlers must be idempotent.
@@ -86,9 +86,10 @@ def run_one(factory, handlers, now=None):
     now = int(time.time()) if now is None else now
     token = str(uuid.uuid4())
     with factory() as db:
-        expired = (
-            db.query(Job).filter(Job.state == "running", Job.lease_until < now).all()
-        )
+        expired_query = db.query(Job).filter(Job.state == "running", Job.lease_until < now)
+        if allowed_kinds is not None:
+            expired_query = expired_query.filter(Job.kind.in_(allowed_kinds))
+        expired = expired_query.all()
         for row in expired:
             if row.kind in ("send", "notification") or json.loads(row.payload).get(
                 "trusted_timestamp", False
@@ -100,12 +101,10 @@ def run_one(factory, handlers, now=None):
                 row.state = "queued"
                 row.stage = "retry_after_worker_restart"
         db.commit()
-        row = (
-            db.query(Job)
-            .filter(Job.state == "queued", Job.run_at <= now)
-            .order_by(Job.run_at, Job.id)
-            .first()
-        )
+        pending = db.query(Job).filter(Job.state == "queued", Job.run_at <= now)
+        if allowed_kinds is not None:
+            pending = pending.filter(Job.kind.in_(allowed_kinds))
+        row = pending.order_by(Job.run_at, Job.id).first()
         if row is None:
             return None
         jid = row.id

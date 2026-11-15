@@ -139,6 +139,8 @@ This creates synthetic records and invokes the configured real extractor. Local 
 
 ## Updates and troubleshooting
 
+For the combined v2 update to the existing configured service, use [the existing-service updater](intelligence/CLOUD_V2_UPDATE.md). It preserves deployed settings and applies the required schema update before starting the new image. The older deploy script below does not configure platform migration or scheduling and must not be used by itself for the v2 rollout.
+
 For updates, `git pull --ff-only` and rerun the deploy script after CI passes. Preserve the database, buckets and secrets. The in-process limiter resets on instance replacement; max-instance settings may be temporarily exceeded during deployment/maintenance and are not a hard cost cap. General scaling needs a shared limiter and a schema-migration strategy.
 
 - **Startup failure:** check revision logs, Cloud SQL attachment, database URL secret, runtime `cloudsql.client` and signing-key length.

@@ -18,6 +18,8 @@ from backend.app.services.platform.notifications import dispatch
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-jobs", type=int, default=20)
+    parser.add_argument("--maintenance-only", action="store_true",
+                        help="Only exports and requested deletion cleanup; no external sends or polling")
     args = parser.parse_args()
     if not 1 <= args.max_jobs <= 100:
         parser.error("max-jobs must be 1–100")
@@ -56,8 +58,13 @@ def main():
         "reminder": deliver_prompt,
         "follow_up": deliver_prompt,
     }
+    if args.maintenance_only:
+        handlers = {key: handlers[key] for key in (
+            "account_export", "delete_account", "export", "delete_case"
+        )}
     for _ in range(args.max_jobs):
-        if run_one(SessionLocal, handlers) is None:
+        if run_one(SessionLocal, handlers,
+                   allowed_kinds=tuple(handlers) if args.maintenance_only else None) is None:
             break
 
 
