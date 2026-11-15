@@ -2,7 +2,7 @@
 import http from 'node:http';
 import {createHash} from 'node:crypto';
 const copy=v=>structuredClone(v);
-export function fixtureHandler(){
+export function fixtureHandler({versionedExtraction=false}={}){
   let sequence=0;const cases=new Map(),operations=new Map(),drafts=new Map(),jobs=new Map(),evidence=new Map();
   const error=(status,code)=>Response.json({error:{code,message:code,details:[],request_id:'fixture-request'}},{status});
   const project=c=>copy(c.snapshot);
@@ -45,6 +45,7 @@ export function fixtureHandler(){
       else{const ev={id:'evidence-'+ ++sequence,sha256:digest};evidence.set(parts[1]+':'+digest,ev);c.snapshot.version++;result={evidence:ev,duplicate_of:null,case_version:c.snapshot.version};}
     }else if(c && parts[2]==='extractions' && method==='POST'){
       c.proposal={schema_version:2,proposal_id:'proposal-'+ ++sequence,candidates:[{candidate_id:'refund-500',terms:{kind:'refund',description:'Refund ₹500',amount_minor:50000,currency:'INR',due_at:null},sources:[{evidence_id:'source-1',quote:'We will refund ₹500.'}],temporal:{wording:null,anchor:null,duration:null,range:null,parse_status:'unknown'},relation:{kind:'new',predecessor_id:null,explanation:'Synthetic fixture'},condition:{trigger:null,status:'not_applicable'},warnings:[]}],document_warnings:['Synthetic fixture; no model inference.']};result=c.proposal;
+      if(versionedExtraction){c.snapshot.version++;result={proposal:c.proposal,case_version:c.snapshot.version};}
     }else if(c && parts[2]==='reviews' && method==='POST'){
       if(!c.proposal || body.proposal_id!==c.proposal.proposal_id)return error(409,'PROPOSAL_CLOSED');
       const decisions=body.decisions.filter(d=>d.selected);
@@ -82,8 +83,8 @@ export function fixtureHandler(){
     return Response.json(result);
   };
 }
-export async function serveFixture(){
-  const handler=fixtureHandler();const server=http.createServer(async(req,res)=>{
+export async function serveFixture(options={}){
+  const handler=fixtureHandler(options);const server=http.createServer(async(req,res)=>{
     try{const chunks=[];for await(const chunk of req)chunks.push(chunk);const response=await handler(new Request('http://localhost'+req.url,{method:req.method,headers:req.headers,body:['GET','HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks)}));res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));}catch{res.writeHead(500);res.end('{}');}
   });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   return {base:`http://127.0.0.1:${server.address().port}/api/v2`,close:()=>new Promise(resolve=>server.close(resolve))};

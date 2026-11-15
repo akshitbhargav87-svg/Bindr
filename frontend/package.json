@@ -10,7 +10,7 @@
     "check": "node --test checks/workspace.test.mjs checks/capture.test.mjs checks/case.test.mjs checks/complaint.test.mjs checks/planning.test.mjs checks/http-flow.test.mjs checks/account.test.mjs checks/react-auth.test.mjs",
     "build:http": "node checks/build-http.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "check:track-b": "node --test checks/intelligence-v2.test.mjs checks/capture-recovery.test.mjs checks/proposal-security.test.mjs checks/extension-share.test.mjs"
+    "check:track-b": "node --test checks/intelligence-v2.test.mjs checks/capture-recovery.test.mjs checks/proposal-security.test.mjs checks/extension-share.test.mjs checks/stored-surfaces.test.mjs checks/capture-v2-flow.test.mjs"
   },
   "dependencies": {
     "@firebase/app": "0.14.9",

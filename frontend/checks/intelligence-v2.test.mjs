@@ -37,6 +37,42 @@ test('uncertain transport retains operation key and changed payload is blocked',
   await assert.rejects(()=>client.mutate('/cases/a/outcomes',body,op,v=>v));assert.equal(op.state,'uncertain');await client.mutate('/cases/a/outcomes',body,op,v=>v);assert.equal(keys[0],keys[1]);
   await assert.rejects(()=>client.mutate('/cases/a/outcomes',{...body,note:'changed'},op,v=>v),/different content/);assert.equal(calls,2);
 });
+test('operation replay is bound to its action and case, including cached success',async()=>{
+  m.setAccountContext('scope-owner');let calls=0;
+  const client=new m.V2Client('/api/v2',async()=>{calls++;return Response.json({confirmed:true});});
+  const body={expected_version:1},op=m.operation(body);
+  await client.mutate('/cases/first/outcomes',body,op,v=>v);
+  await assert.rejects(()=>client.mutate('/cases/second/outcomes',body,op,v=>v),/different action or case/);
+  await assert.rejects(()=>client.request('/cases/first/outcomes',v=>v,{method:'DELETE',body,operation:op}),/different action or case/);
+  assert.equal(calls,1);
+});
+test('v2 writes prefer the current host CSRF cookie and reject malformed cookies before transport',async()=>{
+  m.setAccountContext('csrf-owner');let seen,calls=0;
+  const client=new m.V2Client('/api/v2',async(url,options)=>{calls++;seen=options.headers['X-CSRF-Token'];return Response.json({ok:true});});
+  const before=document.cookie;try{
+    document.cookie='pk_csrf=stale; bindr_csrf=account; __Host-bindr_csrf=host%2Daccount';
+    await client.mutate('/cases',{},m.operation({}),v=>v);assert.equal(seen,'host-account');
+    document.cookie='pk_csrf=stale; __Host-bindr_csrf=%broken';
+    await assert.rejects(()=>client.mutate('/cases',{},m.operation({}),v=>v));assert.equal(calls,1);
+  }finally{document.cookie=before;}
+});
+test('an HTML 401 clears account identity and preserves the uncertain operation for same-account recovery',async()=>{
+  m.setAccountContext('expired-owner');
+  const client=new m.V2Client('/api/v2',async()=>new Response('<html>session expired</html>',{status:401,headers:{'Content-Type':'text/html'}}));
+  const op=m.operation({});await assert.rejects(()=>client.mutate('/cases',{},op,v=>v),e=>e.status===401);
+  assert.equal(m.accountContext().id,null);assert.equal(op.state,'uncertain');assert.equal(op.account_id,'expired-owner');
+});
+test('malformed extraction envelopes remain uncertain and an exact retry can decode a versioned proposal',async()=>{
+  m.setAccountContext('extract-owner');let calls=0;const keys=[];
+  const p={schema_version:2,proposal_id:'proposal-1',candidates:[],document_warnings:[]};
+  const client=new m.V2Client('/api/v2',async(url,options)=>{keys.push(options.headers['Idempotency-Key']);return Response.json(++calls===1 ? {proposal:{schema_version:2,candidates:'invalid'}} : {proposal:p,case_version:4});});
+  const body={expected_version:3,evidence_ids:['e1']},op=m.operation(body);
+  await assert.rejects(()=>client.mutate('/cases/a/extractions',body,op,m.extractionResponse));assert.equal(op.state,'uncertain');
+  const result=await client.mutate('/cases/a/extractions',body,op,m.extractionResponse);assert.equal(result.case_version,4);assert.equal(result.proposal.proposal_id,'proposal-1');assert.equal(calls,2);assert.equal(keys[0],keys[1]);
+  assert.equal(m.extractionResponse(p).case_version,null);
+  assert.equal(m.extractionResponse({job:{id:'j1',status:'queued',stage:'provider',retryable:false,request_id:'r1'},case_version:3}).job.status,'queued');
+  assert.throws(()=>m.extractionResponse({proposal:p,case_version:0}));
+});
 test('future/invalid proposals, zero-decimal currencies, aggregates and offline manifest verifier',async()=>{
   assert.throws(()=>m.validateTerms({kind:'refund',description:'Refund',amount_minor:5,currency:'INR',due_at:'2026-11-31T10:00:00Z'}));
   assert.match(m.formatAuthoritativeMoney({currency:'JPY',amount_minor:500}),/500/);

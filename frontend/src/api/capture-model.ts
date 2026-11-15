@@ -1,6 +1,6 @@
 import type { Candidate, CommitmentKind } from './capture-types';
-import type {Operation,Proposal,Job} from './v2';
-export interface V2CaptureState {caseId:string|null;version:number;evidenceIds:string[];uploadedKeys:string[];proposal:Proposal|null;job:Job|null;operations:Record<string,Operation>}
+import type {Operation,Proposal,Job,ReviewDraft} from './v2';
+export interface V2CaptureState {caseId:string|null;version:number;evidenceIds:string[];uploadedKeys:string[];proposal:Proposal|null;job:Job|null;operations:Record<string,Operation>;manualDescription?:string;manualAmount?:string;reviewDraft?:{proposal_id:string;values:ReviewDraft}}
 export type Scenario = 'standard' | 'multiple' | 'vague' | 'date-review' | 'no-promise' | 'duplicate' | 'ai-error' | 'save-error';
 export interface CaptureSource { key: string; file: File; communicationDate: string; error: string | null }
 export interface CaptureInput { company: string; title: string; sources: CaptureSource[] }

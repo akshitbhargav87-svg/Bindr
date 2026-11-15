@@ -1,17 +1,19 @@
-import {useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {Button} from '../ui';
 import {sourceDiff,reviewedAmount,formatAuthoritativeMoney} from '../../api/workflow';
 import {validDay} from '../../api/capture-validation';
-import {validateTerms,type Proposal,type V2Terms,type ReviewDecision} from '../../api/v2';
+import {validateTerms,type Proposal,type V2Terms,type ReviewDecision,type ReviewDraft} from '../../api/v2';
 
-interface Props {proposal:Proposal;previous?:Record<string,V2Terms>;busy:boolean;onConfirm:(items:ReviewDecision[])=>Promise<void>;onSource?:(id:string,quote:string)=>void}
-export default function ProposalReview({proposal,previous={},busy,onConfirm,onSource}:Props){
-  const [selected,setSelected]=useState<Record<string,boolean>>({});
-  const [edits,setEdits]=useState<Record<string,V2Terms>>({});
-  const [amounts,setAmounts]=useState<Record<string,string>>({});
-  const [predecessors,setPredecessors]=useState<Record<string,string>>({});
-  const [dates,setDates]=useState<Record<string,string>>({});
-  const [reasons,setReasons]=useState<Record<string,string>>({});
+interface Props {proposal:Proposal;previous?:Record<string,V2Terms>;busy:boolean;onConfirm:(items:ReviewDecision[])=>Promise<void>;onSource?:(id:string,quote:string)=>void;initialDraft?:ReviewDraft;onDraftChange?:(draft:ReviewDraft)=>void}
+export default function ProposalReview({proposal,previous={},busy,onConfirm,onSource,initialDraft,onDraftChange}:Props){
+  const [selected,setSelected]=useState<Record<string,boolean>>(initialDraft?.selected ?? {});
+  const [edits,setEdits]=useState<Record<string,V2Terms>>(initialDraft?.edits ?? {});
+  const [amounts,setAmounts]=useState<Record<string,string>>(initialDraft?.amounts ?? {});
+  const [predecessors,setPredecessors]=useState<Record<string,string>>(initialDraft?.predecessors ?? {});
+  const [dates,setDates]=useState<Record<string,string>>(initialDraft?.dates ?? {});
+  const [reasons,setReasons]=useState<Record<string,string>>(initialDraft?.reasons ?? {});
+  const draftWriter=useRef(onDraftChange);draftWriter.current=onDraftChange;
+  useEffect(()=>draftWriter.current?.({selected,edits,amounts,predecessors,dates,reasons}),[selected,edits,amounts,predecessors,dates,reasons]);
   const [reviewed,setReviewed]=useState(false),[error,setError]=useState(''),[saving,setSaving]=useState(false);
   const guard=useRef(false);
   function edit(id:string,value:Partial<V2Terms>){const original=proposal.candidates.find(c=>c.candidate_id===id)!.terms;setEdits({...edits,[id]:{...(edits[id] ?? original),...value}});setReviewed(false);}
