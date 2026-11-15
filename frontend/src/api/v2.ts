@@ -47,7 +47,8 @@ export function extractionResponse(v:unknown):{proposal:Proposal|null;job:Job|nu
 }
 
 export class V2Client {
-  constructor(private base='/api/v2',private transport:typeof fetch=fetch){}
+  // Keep the Window receiver when calling the browser's native fetch.
+  constructor(private base='/api/v2',private transport:typeof fetch=(input,init)=>globalThis.fetch(input,init)){}
   async request<T>(path:string,decode:(value:unknown)=>T,options:{method?:string;body?:unknown;operation?:Operation;fingerprint?:string}={}):Promise<T> {
     const owner=accountContext();if(!owner.id)throw new Error('Sign in before opening private records.');
     if(!path.startsWith('/') || path.startsWith('//') || /[?#]/.test(path))throw new Error('Invalid API path.');
