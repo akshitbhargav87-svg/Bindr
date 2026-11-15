@@ -2,6 +2,8 @@
 
 This owned document materializes the frozen parallel contract for independent tests. It does **not** revise `PARALLEL_IMPLEMENTATION_CONTRACT.md`, prove deployed endpoints exist, or authorize A/B to change shared names without review. Field details absent from the planning contract need joint review before activation.
 
+**Combined integration update:** A's concrete `ba2e389` profile is now the wire format used by application pages through `frontend/src/api/platform.ts`, and by `services/intelligence/platform_profile.py` at the pure-engine boundary. The original B fixture/presentation profile below remains for historical independent tests. The platform adapter explicitly converts reviews to `action/edited_terms/predecessor_id`, mutations to `case_version`, drafts to `capture`, temporal/condition fields to A's published names, audio milliseconds to seconds, and ledger currency buckets to presentation rows. No server arithmetic or currency total is recomputed by that mapping. See `COMBINED_MVP_STATUS.md` for actual integration evidence and remaining limits.
+
 ## Python seam
 
 ```python
