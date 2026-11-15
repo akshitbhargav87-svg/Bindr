@@ -12,7 +12,7 @@ const bundle=(await build({stdin:{contents:"export {default as Capture} from './
 const require=createRequire(import.meta.url),tick=()=>new Promise(r=>setImmediate(r));
 async function until(predicate){for(let i=0;i<80;i++){let done;await act(async()=>{await new Promise(r=>setTimeout(r,10));done=predicate();});if(done)return;}assert.fail('Expected capture state did not arrive.');}
 for(const loseResponse of [false,true])test(`actual v2 capture uses extraction version and saves once${loseResponse ? ' after an uncertain upload replay' : ''}`,async()=>{
-  const server=await serveFixture({versionedExtraction:true}),transport=globalThis.fetch,calls=[];let dropped=false,hook;
+  const server=await serveFixture({versionedExtraction:true,platformProfile:true}),transport=globalThis.fetch,calls=[];let dropped=false,hook;
   globalThis.fetch=async(url,options={})=>{const target=new URL(url,server.base);calls.push({path:target.pathname,method:options.method ?? 'GET',key:options.headers?.['Idempotency-Key']});const response=await transport(target,{...options,headers:{...options.headers,'X-Fixture-Owner':'flow-owner'}});if(loseResponse && !dropped && target.pathname.endsWith('/evidence') && options.method==='POST'){dropped=true;throw new TypeError('Synthetic response lost after upload');}return response;};
   const module={exports:{}};new Function('require','module','exports',bundle)(require,module,module.exports);const m=module.exports;m.setAccountContext('flow-owner');
   function Probe(){hook=m.useCapture();return React.createElement(m.Capture);}

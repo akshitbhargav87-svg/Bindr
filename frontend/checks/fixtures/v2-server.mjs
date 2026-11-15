@@ -2,7 +2,7 @@
 import http from 'node:http';
 import {createHash} from 'node:crypto';
 const copy=v=>structuredClone(v);
-export function fixtureHandler({versionedExtraction=false}={}){
+export function fixtureHandler({versionedExtraction=false,platformProfile=false}={}){
   let sequence=0;const cases=new Map(),operations=new Map(),drafts=new Map(),jobs=new Map(),evidence=new Map();
   const error=(status,code)=>Response.json({error:{code,message:code,details:[],request_id:'fixture-request'}},{status});
   const project=c=>copy(c.snapshot);
@@ -25,6 +25,8 @@ export function fixtureHandler({versionedExtraction=false}={}){
     if(parts[0]==='cases' && parts[1] && (!c || c.owner!==owner || c.deleted))return error(404,'NOT_FOUND');
     if(parts[0]==='capture-drafts' && parts[1] && drafts.get(parts[1])?.owner!==owner)return error(404,'NOT_FOUND');
     if(parts[0]==='jobs' && jobs.get(parts[1])?.owner!==owner)return error(404,'NOT_FOUND');
+    if(platformProfile && parts[2]==='reviews')body={...body,decisions:body.decisions.map(d=>({...d,selected:d.action!=='reject',terms:d.edited_terms}))};
+    if(platformProfile && parts[2]==='outcomes')body={...body,allocations:body.allocations.map(a=>({...a,currency:a.amount_minor===null ? null : c.snapshot.obligations.find(o=>o.id===a.obligation_id)?.terms.currency}))};
     const key=request.headers.get('Idempotency-Key'),scope=[owner,method,path,key].join(':'),payload=JSON.stringify(body);
     if(write){
       if(!key)return error(422,'OPERATION_KEY_REQUIRED');
@@ -79,6 +81,14 @@ export function fixtureHandler({versionedExtraction=false}={}){
       else if(body.communication?.date==='2026-12-28' && body.expression==='five calendar days')result={earliest:{date:'2027-01-02',timezone:'Asia/Kolkata',precision:'date'},latest:{date:'2027-01-02',timezone:'Asia/Kolkata',precision:'date'},warnings:[],explanation:'Synthetic golden response; A owns calendar arithmetic.'};
       else result={earliest:null,latest:null,status:'anchor_missing',warnings:['Confirm the communication anchor.']};
     }else return error(501,'FIXTURE_CAPABILITY_UNAVAILABLE');
+    if(platformProfile){
+      if(result.schema_version===2 || result.proposal){const convert=p=>({...p,candidates:p.candidates.map(c=>({...c,temporal:{original_wording:c.temporal.wording,anchor:null,duration:null,range:null,parse_status:'unknown'},condition:{text:c.condition.trigger,fulfilled:null}}))});result=result.proposal ? {...result,proposal:convert(result.proposal)} : {proposal:convert(result),case_version:c.snapshot.version};}
+      if(result.projection){
+        const value=result;
+        result={case:{id:value.id,version:value.version,title:'Synthetic refund',merchant_name:'Shop'},version:value.version,events:value.events,evidence:[],legacy_commitments:[],capabilities:{outcomes:true,manual:true,export:true,automatic_send:false},projection:{...value.projection,money_by_currency:Object.fromEntries(value.projection.money_by_currency.map(m=>[m.currency,{outstanding_minor:m.amount_minor}]))},obligations:value.obligations.map(o=>({...o,state:o.semantic_status,root_id:o.id,sources:[],deadline:{},outstanding_minor:o.balance[0]?.amount_minor ?? null}))};
+        if(write && ['reviews','outcomes','manual-promises'].includes(parts[2]))result={case_version:value.version};
+      }
+    }
     if(write)operations.set(scope,{payload,result:copy(result)});
     return Response.json(result);
   };

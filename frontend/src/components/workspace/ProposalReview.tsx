@@ -12,8 +12,9 @@ export default function ProposalReview({proposal,previous={},busy,onConfirm,onSo
   const [predecessors,setPredecessors]=useState<Record<string,string>>(initialDraft?.predecessors ?? {});
   const [dates,setDates]=useState<Record<string,string>>(initialDraft?.dates ?? {});
   const [reasons,setReasons]=useState<Record<string,string>>(initialDraft?.reasons ?? {});
+  const [times,setTimes]=useState<Record<string,string>>(initialDraft?.times ?? {});
   const draftWriter=useRef(onDraftChange);draftWriter.current=onDraftChange;
-  useEffect(()=>draftWriter.current?.({selected,edits,amounts,predecessors,dates,reasons}),[selected,edits,amounts,predecessors,dates,reasons]);
+  useEffect(()=>draftWriter.current?.({selected,edits,amounts,predecessors,dates,reasons,times}),[selected,edits,amounts,predecessors,dates,reasons,times]);
   const [reviewed,setReviewed]=useState(false),[error,setError]=useState(''),[saving,setSaving]=useState(false);
   const guard=useRef(false);
   function edit(id:string,value:Partial<V2Terms>){const original=proposal.candidates.find(c=>c.candidate_id===id)!.terms;setEdits({...edits,[id]:{...(edits[id] ?? original),...value}});setReviewed(false);}
@@ -32,7 +33,7 @@ export default function ProposalReview({proposal,previous={},busy,onConfirm,onSo
           if(!predecessor)throw new Error('Select the active predecessor for this cancellation or corroboration.');
           decision.action=c.relation.kind==='cancellation' ? 'cancel' : 'corroborate';
         }
-        if(dates[id]){if(!validDay(dates[id]) || !reasons[id]?.trim())throw new Error('Review the date override and explain why it matches the source.');decision.deadline_override={date:dates[id],timezone:'Asia/Kolkata',precision:'date'};decision.reason=reasons[id];terms.due_at=null;}
+        if(dates[id]){if(!validDay(dates[id]) || !reasons[id]?.trim())throw new Error('Review the date override and explain why it matches the source.');decision.deadline_override={date:dates[id],timezone:'Asia/Kolkata',precision:'date'};decision.reason=reasons[id];terms.due_at=times[id] ? `${dates[id]}T${times[id]}:00+05:30` : null;}
         if(decision.selected)validateTerms(terms);return decision;
       });
       setSaving(true);await onConfirm(items);
@@ -52,6 +53,7 @@ export default function ProposalReview({proposal,previous={},busy,onConfirm,onSo
       {c.condition.trigger && <p role="status">Condition: {c.condition.trigger} · {c.condition.status}. A fixed date needs confirmation of the trigger.</p>}
       <p>Date wording: {c.temporal.wording ?? 'No date'} · {c.temporal.parse_status}</p><p>Communication anchor: {c.temporal.anchor ?? 'Unknown'}</p>
       <label>Confirmed date override (Asia/Kolkata)<input type="date" value={dates[id] ?? ''} onChange={e=>{setDates({...dates,[id]:e.target.value});setReviewed(false);}}/></label>
+      {dates[id] && <><label>Explicit confirmed time (optional, Asia/Kolkata)<input type="time" value={times[id] ?? ''} onChange={e=>{setTimes({...times,[id]:e.target.value});setReviewed(false);}}/></label><p>A date alone stays a date proposal. Enter a reviewed time only when you intend to confirm an exact deadline; no midnight is invented.</p></>}
       {dates[id] && <label>Why this date?<input maxLength={1000} value={reasons[id] ?? ''} onChange={e=>{setReasons({...reasons,[id]:e.target.value});setReviewed(false);}}/></label>}
       {c.warnings.map((w,i)=><p role="status" key={i}>{w}</p>)}{c.sources.map((s,i)=><blockquote key={i}><p>{s.quote}</p><cite>{s.evidence_id}{s.page ? ` · page ${s.page}` : ''}{s.message_id ? ` · message ${s.message_id}` : ''}{s.start_ms!=null ? ` · ${s.start_ms/1000}–${(s.end_ms ?? s.start_ms)/1000}s` : ''}</cite>{onSource && <Button variant="text" onClick={()=>onSource(s.evidence_id,s.quote)}>View original source</Button>}</blockquote>)}
     </article>;})}

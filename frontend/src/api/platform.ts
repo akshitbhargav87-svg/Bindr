@@ -22,7 +22,7 @@ export function platformSnapshot(value:unknown):CaseSnapshot {
       balance:o.outstanding_minor===null ? [] : [{currency:o.terms.currency,amount_minor:o.outstanding_minor}]})),
     projection:{...p.projection,money_by_currency:Object.entries(totals).map(([currency,v])=>({currency,amount_minor:record(v).outstanding_minor}))}} as CaseSnapshot;
 }
-function platformJob(value:unknown){const envelope=record(value),j=record(envelope.job ?? envelope);return {...j,status:j.state,resource_id:j.resource?.export_id ?? j.resource?.proposal_id,version:j.case_version};}
+function platformJob(value:unknown){const envelope=record(value),j=record(envelope.job ?? envelope);return {...j,export_id:envelope.export_id,status:j.state,resource_id:j.resource?.export_id ?? j.resource?.proposal_id,version:j.case_version};}
 function explicitDate(day:{date:string;timezone:string}){return {anchor:communication(),anchor_confirmed:false,conditional:false,expression:'User reviewed date override',unit:'explicit_date',minimum:0,maximum:0,explicit_date:day.date,calendar_id:'weekend_only',calendar_version:'1'};}
 export function platformBody(path:string,body:unknown,method:string):unknown {
   if(body===undefined || body instanceof FormData)return body;const b=record(body);
