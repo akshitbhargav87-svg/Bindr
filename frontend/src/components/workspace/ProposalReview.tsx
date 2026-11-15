@@ -28,6 +28,10 @@ export default function ProposalReview({proposal,previous={},busy,onConfirm,onSo
         if(amounts[id]!==undefined){terms.amount_minor=reviewedAmount(amounts[id],terms.currency ?? 'INR');if(terms.amount_minor===null)terms.currency=null;}
         const predecessor=predecessors[id] ?? c.relation.predecessor_id;
         const decision:ReviewDecision={candidate_id:id,selected:selected[id] ?? false,terms,predecessor_ids:predecessor ? [predecessor] : []};
+        if(c.relation.kind==='cancellation' || c.relation.kind==='corroboration'){
+          if(!predecessor)throw new Error('Select the active predecessor for this cancellation or corroboration.');
+          decision.action=c.relation.kind==='cancellation' ? 'cancel' : 'corroborate';
+        }
         if(dates[id]){if(!validDay(dates[id]) || !reasons[id]?.trim())throw new Error('Review the date override and explain why it matches the source.');decision.deadline_override={date:dates[id],timezone:'Asia/Kolkata',precision:'date'};decision.reason=reasons[id];terms.due_at=null;}
         if(decision.selected)validateTerms(terms);return decision;
       });

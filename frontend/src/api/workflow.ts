@@ -1,18 +1,18 @@
 import {V2Client,operation,validateTerms,snapshot,type Operation,type CaseSnapshot,type ProposalCandidate,type V2Terms,type ReviewDecision} from './v2';
 
 /** Operation objects are owned by the form, retained after uncertain transport errors. */
-export class Workflow {
-  constructor(readonly client=new V2Client()){}
+export class Workflow<T=CaseSnapshot> {
+  constructor(readonly client=new V2Client(),private mutationDecode:(value:unknown)=>T=snapshot as unknown as (value:unknown)=>T){}
   review(id:string,body:{expected_version:number;proposal_id:string;decisions:ReviewDecision[]},op:Operation){
     if(!body.decisions.some(d=>d.selected))throw new Error('Select at least one proposal for review.');
     body.decisions.filter(d=>d.selected).forEach(d=>validateTerms(d.terms));
-    return this.client.mutate(`/cases/${encodeURIComponent(id)}/reviews`,body,op,snapshot);
+    return this.client.mutate(`/cases/${encodeURIComponent(id)}/reviews`,body,op,this.mutationDecode);
   }
   outcome(id:string,body:{expected_version:number;kind:'partial'|'full'|'pending'|'company_claim'|'correction';allocations:{obligation_id:string;amount_minor:number|null;currency:string|null}[];received_at:string|null;note:string;source_ids:string[]},op:Operation){
     if(!body.note.trim())throw new Error('Add a note describing the outcome.');
     if(body.kind==='pending' || body.kind==='company_claim'){if(body.allocations.some(a=>a.amount_minor!==null))throw new Error('Waiting and company claims cannot record received money.');}
     for(const a of body.allocations)if(a.amount_minor!==null && (!Number.isSafeInteger(a.amount_minor) || a.amount_minor<=0 || !a.currency || !/^[A-Z]{3}$/.test(a.currency)))throw new Error('Review the receipt allocation.');
-    return this.client.mutate(`/cases/${encodeURIComponent(id)}/outcomes`,body,op,snapshot);
+    return this.client.mutate(`/cases/${encodeURIComponent(id)}/outcomes`,body,op,this.mutationDecode);
   }
 }
 export function reviewedAmount(value:string,currency:string):number|null {

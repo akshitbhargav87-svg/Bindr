@@ -1,8 +1,9 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {useAuth} from './Auth';
 import {CaptureProvider,useCapture} from './Capture';
+import {PlatformClient} from '../api/platform';
 import {CaptureDraftController} from '../api/capture-draft';
-import {DraftAutosave,V2Client} from '../api/v2';
+import {DraftAutosave} from '../api/v2';
 function CloudCaptureAutosave({account}:{account:string|null}){
   const {session}=useCapture(),controllers=useRef(new Map<string,CaptureDraftController>());
   const [status,setStatus]=useState('');
@@ -11,7 +12,7 @@ function CloudCaptureAutosave({account}:{account:string|null}){
   useEffect(()=>{
     // Explicit activation after A's capture-draft response profile is reviewed.
     if(import.meta.env.VITE_ENABLE_V2_CAPTURE!=='true' || !account || account==='demo' || !text || step==='saved')return;
-    if(!controllers.current.has(account))controllers.current.set(account,new CaptureDraftController(new DraftAutosave(new V2Client(),account),account));
+    if(!controllers.current.has(account))controllers.current.set(account,new CaptureDraftController(new DraftAutosave(new PlatformClient(),account),account));
     let live=true;const timer=setTimeout(()=>{setStatus('Saving capture draft…');void controllers.current.get(account)!.save(session).then(()=>{if(live)setStatus('Capture draft saved to your account.');}).catch(()=>{if(live)setStatus('Cloud autosave was not confirmed. Your capture is still in this tab.');});},800);
     return()=>{live=false;clearTimeout(timer);};
   },[account,text,company,title,communicationDate,step]);
