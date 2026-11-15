@@ -1,6 +1,6 @@
 # Combined MVP integration — 15 November 2026
 
-**Integration is implemented and exercised locally; deployment is not approved.** This report separates actual A+B code integration from real-model, browser, cloud and provider acceptance.
+**Current update:** The owner executed the faster rollout and supplied output confirming **100% traffic to `bindr-v2-6eaebc69-022612`** at https://bindr-tor2633xpq-el.a.run.app on 15 November 2026. See [the deployment record](CLOUD_V2_UPDATE.md#owner-confirmed-traffic-cutover). No further local tests or live model/browser acceptance were run. The historical pre-rollout findings and requirements below are preserved; deployment does not establish full-roadmap, privacy or live-provider acceptance.
 
 ## Pinned sources and preservation
 

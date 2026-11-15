@@ -21,3 +21,14 @@ Command references: [Cloud Build submit](https://docs.cloud.google.com/sdk/gclou
 ## First owner-run rollout observation
 
 The owner supplied Cloud Shell screenshots showing source `6eaebc69b97d` built successfully, the updater advancing through backup/migration/worker scheduling, scheduler `bindr-maintenance-minute` enabled, and revision `bindr-v2-6eaebc69-022612` deployed at 0% traffic. The original utility then stopped at its aggregate service `latestReadyRevisionName` equality check. Traffic cutover and live application acceptance are not established by those screenshots. The utility now checks the immutable revision's observed generation/Ready condition, image digest and retained environment instead. This source-only utility fix does not require rebuilding the already-deployed application image. Resume the existing revision's readiness check/cutover rather than rerunning the full build/migration. No local tests were rerun.
+
+## Owner-confirmed traffic cutover
+
+The owner's subsequent Cloud Shell screenshot on 15 November 2026, approximately 08:06 Asia/Kolkata, shows the revision-specific readiness/environment/runtime-identity/Cloud SQL comparison completing and the traffic command reporting success:
+
+- URL: https://bindr-tor2633xpq-el.a.run.app
+- Revision: `bindr-v2-6eaebc69-022612`.
+- Traffic: **100%** to that named revision, confirmed by the service status output.
+- Application image source: `6eaebc69b97d`; the later readiness-utility correction does not change application runtime and was not rebuilt.
+
+This confirms deployment and routing based on owner-supplied output. No automated HTTP probe, real model request, browser/account flow, scheduled worker execution, original-byte comparison or backup restoration was performed by this chat during cutover. Scheduler creation is confirmed; unattended execution/delivery is not. Optional external notification/Gmail sending remains disabled and the scheduled worker is maintenance-only. Existing historical QA verdicts and earlier test results remain unchanged; deployment is not full-roadmap or live-provider acceptance.
