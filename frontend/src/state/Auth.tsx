@@ -27,7 +27,18 @@ function useAuthState(){
   useEffect(()=>{
     if(isMock)return;let active=true;
     (async()=>{try{const c=await accountRequest<AuthConfig>('/config');if(!active)return;setConfig(c);
-      if(c.provider==='anonymous'){setStatus('demo');return;}
+      if(c.provider==='anonymous'){
+        // Server-advertised development mode only. Deployed startup forbids it.
+        // Open the existing browser workspace before v2 requests need its identity.
+        if(import.meta.env.VITE_ENABLE_V2_CAPTURE==='true'){
+          const {api}=await import('../api');await api.listCases();
+          const session=await accountRequest<{user_id:string}>('/session');
+          if(!active)return;
+          if(typeof session.user_id!=='string' || !session.user_id)throw new Error('Workspace identity unavailable.');
+          setAccountContext(session.user_id);
+        }
+        setStatus('demo');return;
+      }
       if(!c.configured){clear('unavailable');setError('Account sign-in is being set up. Please try again later.');return;}
       await refresh();
     }catch{if(active){clear('unavailable');setError('Could not reach the sign-in service. Please check your connection.');}}})();
