@@ -229,12 +229,22 @@ def test_private_bundle_hashes_and_original_bytes(client, secondary_client, db_s
 
 def test_missing_v2_engine_is_a_typed_failure_not_mock_success(client, db_session):
     cid, ids = fixture_case(client)
-    r = post(
-        client,
-        f"/cases/{cid}/extractions",
-        {"expected_version": 3, "evidence_ids": ids},
-        "missing-engine",
-    )
+    # The real adapter now implements v2. Model a missing engine explicitly,
+    # independent of whether this process has configured provider credentials.
+    previous = app.dependency_overrides.get(get_intelligence)
+    app.dependency_overrides[get_intelligence] = lambda: object()
+    try:
+        r = post(
+            client,
+            f"/cases/{cid}/extractions",
+            {"expected_version": 3, "evidence_ids": ids},
+            "missing-engine",
+        )
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_intelligence, None)
+        else:
+            app.dependency_overrides[get_intelligence] = previous
     assert (
         r.status_code == 503
         and r.json()["error"]["code"] == "INTELLIGENCE_V2_UNAVAILABLE"

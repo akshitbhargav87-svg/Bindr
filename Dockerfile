@@ -3,7 +3,7 @@ WORKDIR /build/frontend
 COPY frontend/package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
-ENV VITE_USE_MOCK=false VITE_API_URL=/api/v1
+ENV VITE_USE_MOCK=false VITE_API_URL=/api/v1 VITE_ENABLE_V2_CAPTURE=true
 RUN npm run build
 
 FROM python:3.12-slim-bookworm

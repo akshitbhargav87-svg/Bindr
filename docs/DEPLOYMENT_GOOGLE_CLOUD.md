@@ -1,6 +1,6 @@
 # Deploy Bindr on Google Cloud
 
-> Account deployment requires Akshit to complete [Firebase/Identity Platform setup](AUTHENTICATION.md) first. The existing database, bucket and signing secret are retained.
+> **Combined v2 update:** Use `codex/qa-integration`. Firebase/Identity Platform setup must exist before account deployment; this chat now owns the backend closeout because Akshit is unavailable. Preserve the existing database, buckets and signing secret. Before replacing the existing service, follow the schema-11 migration and managed-worker requirements in [platform operations](platform/OPERATIONS.md) and the current [combined integration status](intelligence/COMBINED_MVP_STATUS.md). The historical live acceptance below covers an earlier revision, not this combined v2 release. The Docker build now enables v2. Existing cloud Secret Manager configuration can provide the model key; absence of a local key does not establish that the deployed service lacks one.
 
 **Cloud Run** hosts the connected frontend/API. **Cloud SQL PostgreSQL** stores records. **Private Cloud Storage** keeps original evidence. **Secret Manager** holds credentials. The existing Meta API provider stays in place; this does not switch AI to Gemini or Vertex AI.
 

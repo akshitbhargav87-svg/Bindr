@@ -87,10 +87,10 @@ def test_rfc3161_checks_chain_nonce_and_digest(tmp_path, monkeypatch):
         f"""[tsa]
 default_tsa=config
 [config]
-serial={serial}
-signer_cert={tsa}
-certs={ca}
-signer_key={tsakey}
+serial={serial.as_posix()}
+signer_cert={tsa.as_posix()}
+certs={ca.as_posix()}
+signer_key={tsakey.as_posix()}
 signer_digest=sha256
 default_policy=1.2.3.4.1
 digests=sha256
