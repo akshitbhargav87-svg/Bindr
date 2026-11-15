@@ -58,6 +58,8 @@ See [additional retests](intelligence/INDEPENDENT_RETESTS_2026-11-15.md) and [th
 
 ## Exact integration work still required
 
+**Integration update:** Track A `ba2e389` has now been combined with Track B in the separate `bindr-integration` worktree on `codex/qa-integration`. The actual client and pure engines have been adapted to A's published profile. Real combined HTTP/SQL and mounted React-to-server core checks pass with controlled inference. The full combined backend suite currently has 296 passing tests and two retained A-owned failures; it is not all green. See [COMBINED_MVP_STATUS.md](intelligence/COMBINED_MVP_STATUS.md) for exact counts, remaining A requests and deployment gates. Real Meta/browser/Firebase/cloud acceptance remains open. Earlier fixture-only descriptions above are historical starting evidence, not a claim these remaining gates have closed.
+
 1. A consumes the explicit Python seam and reviewed B request/response profile, implements its owned routes/models/dependencies and supplies versioned connector, calendar and queued-proposal retrieval details. Neither side should silently adapt a shared contract by guessing.
 2. Combine reviewed heads on an integration branch and run real v2 capture, every selected obligation, outcomes/reopen, source history, cloud drafts, jobs/export/delete and PostgreSQL concurrency. Reconcile actual dashboard/agenda balances with SQL.
 3. Configure the existing model securely outside chat and repeat all canonical inputs through review/save/reload, particularly 5/8/1B. The offline mock is deliberately not expanded into a pretend production language/reasoning model.
