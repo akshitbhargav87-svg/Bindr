@@ -48,6 +48,14 @@ Fresh results and canonical limits: [RETESTS_2026-11-15.md](intelligence/RETESTS
 
 Initial handoff baseline: 191 backend/AI tests + 3 subtests. Final complete-suite counts are recorded in the retest document. Existing frontend checks: 81 passed; additional owned checks run separately. Preserved integration regressions: 28 passed. TypeScript/Vite production build passed. Account-head CI is not presented as CI for the new branch.
 
+## Independent follow-up while A develops
+
+Completed additional client/privacy fixes and expanded the owned frontend suite from 8 to **21 passing tests**; the existing **81 checks** also pass. The actual v1 frontend HTTP adapter smoke passed against a separate real local FastAPI/SQLite/evidence process with explicit mock AI. New tests cover action/case-bound operation replay, correct CSRF-cookie priority, HTML 401 identity clearing, uncertain extraction decoding, server extraction versions, preservation of edited review/manual drafts, and saved case/evidence/activity/complaint rendering. No backend runtime or A-owned file was changed in this follow-up.
+
+The actual v2 capture screen now passes normal and lost-upload-response flows against its independent HTTP fixture, with one saved obligation and stable replay keys. This remains fixture evidence, not real v2 service acceptance. The broader stored-XSS matrix uses controlled React/JSDOM boundaries and does not replace real browser/PDF/notification acceptance.
+
+See [additional retests](intelligence/INDEPENDENT_RETESTS_2026-11-15.md) and [the concrete integration runbook](intelligence/AFTER_AKSHIT_READY.md). The latter lists the exact order once A's branch is ready: pin/review interfaces and heads, assemble an isolated combined candidate, verify real core/provider/security flows, then review release separately. Live model credentials and A's services remain required; unsupported connectors/sends and unreviewed v2 activation remain disabled.
+
 ## Exact integration work still required
 
 1. A consumes the explicit Python seam and reviewed B request/response profile, implements its owned routes/models/dependencies and supplies versioned connector, calendar and queued-proposal retrieval details. Neither side should silently adapt a shared contract by guessing.

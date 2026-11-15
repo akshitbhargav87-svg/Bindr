@@ -28,6 +28,8 @@ The returned proposal uses the frozen v2 candidate fields. `temporal` has `wordi
 
 `src/api/v2.ts` supplies strict decoders and credentialed, no-store requests with `X-Bindr-Account`, CSRF and stable `Idempotency-Key`. Mutations are never auto-retried. The same key/body remains available after timeout/network uncertainty; changed content and another account cannot reuse it. Requests have a 45-second client abort; abort leaves uncertainty, not a declaration that no server write occurred.
 
+Operation replay/cache is also scoped to the HTTP method and exact case/action path. CSRF selection prefers the host/account cookie over the legacy cookie. A 401 clears account identity even when its body is not JSON. Extraction envelopes are decoded before caching success; an explicit `case_version` is preserved for subsequent review. This field remains part of the profile to review with A, not an assumed version inferred by B.
+
 The independent fixture server is under `frontend/checks/fixtures/`, imported only by tests. It is synthetic, process-local, and cannot count as production persistence, authorization, provider delivery or PostgreSQL concurrency acceptance.
 
 Concrete core profiles used by B:
