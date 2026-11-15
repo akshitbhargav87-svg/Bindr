@@ -6,7 +6,21 @@ on:
 jobs:
   integration:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bindr_test
+          POSTGRES_PASSWORD: bindr_ci_test_only
+          POSTGRES_DB: bindr_platform_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
+      BINDR_TEST_DATABASE_URL: postgresql+psycopg://bindr_test:bindr_ci_test_only@127.0.0.1:5432/bindr_platform_test
       AI_PROVIDER: mock
       OCR_MODEL_DIR: ${{ github.workspace }}/.ocr-models
     steps:
@@ -33,6 +47,8 @@ jobs:
         run: python -c 'from backend.app.ai.document_processor import warm_ocr_models; warm_ocr_models()'
       - name: Backend and AI tests
         run: python -m pytest backend/app/tests backend/app/ai/tests -q
+      - name: Platform contracts and PostgreSQL overlap
+        run: python -m pytest tests/contracts/platform -q
       - name: Integration regressions
         run: python scripts/run_integration_regressions.py --source . --auth-hook tests/regression/final_acceptance/signed_session.py --ocr-model-dir .ocr-models
       - run: npm ci --no-audit --no-fund

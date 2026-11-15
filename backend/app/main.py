@@ -13,7 +13,7 @@ from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.app.core.config import settings
-from backend.app.core.database import Base, engine, run_sqlite_migrations
+from backend.app.core.database import engine
 from backend.app.api.router import api_router
 from backend.app.core.auth import get_auth_secret
 from backend.app.services.storage import validate_cloud_run_settings
@@ -33,9 +33,12 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("Complete the Firebase project configuration before enabling account sign-in.")
     if os.getenv("FIREBASE_AUTH_EMULATOR_HOST") and settings.ENVIRONMENT.lower() in {"production", "prod", "staging", "deployed"}:
         raise RuntimeError("Authentication emulators are forbidden in deployed environments.")
-    # Initialize SQLite tables and run non-destructive schema migrations
-    Base.metadata.create_all(bind=engine)
-    run_sqlite_migrations(engine)
+    # Apply versioned, additive migrations before serving either API version.
+    from backend.migrations import upgrade,assert_current
+    if os.getenv('K_SERVICE') or os.getenv('CLOUD_RUN_JOB'):
+        assert_current(engine)
+    else:
+        upgrade(engine)
     yield
 
 
@@ -122,7 +125,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     req_id = str(uuid.uuid4())
-    logger.exception(f"Unhandled internal server error (request_id={req_id}): {exc}")
+    logger.error("Unhandled internal server error request_id=%s type=%s", req_id, type(exc).__name__)
     # Internal details, stack traces, paths, and credentials are completely redacted
     return JSONResponse(
         status_code=500,
@@ -140,6 +143,30 @@ async def generic_exception_handler(request: Request, exc: Exception):
 # Mount router under /api/v1 (API_CONTRACT) and /api (Milestone 1 Health & Core APIs)
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(api_router, prefix="/api")
+from backend.app.api.v2.platform import router as platform_router
+app.include_router(platform_router)
+from backend.app.api.v2.workflow import router as workflow_router
+app.include_router(workflow_router)
+from backend.app.api.v2.evidence import router as evidence_v2_router
+app.include_router(evidence_v2_router)
+from backend.app.api.v2.reviews import router as review_v2_router
+app.include_router(review_v2_router)
+from backend.app.api.v2.jobs import router as jobs_v2_router
+app.include_router(jobs_v2_router)
+from backend.app.api.v2.connectors import router as connector_v2_router
+app.include_router(connector_v2_router)
+from backend.app.api.v2.retrieval import router as retrieval_v2_router
+app.include_router(retrieval_v2_router)
+from backend.app.api.v2.accounts import router as account_v2_router
+app.include_router(account_v2_router)
+from backend.app.api.v2.insights import router as insights_v2_router
+app.include_router(insights_v2_router)
+from backend.app.api.v2.webhooks import router as webhook_v2_router
+app.include_router(webhook_v2_router)
+from backend.app.api.v2.capture import router as capture_v2_router
+app.include_router(capture_v2_router)
+from backend.app.api.v2.devices import router as devices_v2_router
+app.include_router(devices_v2_router)
 
 
 @app.middleware("http")

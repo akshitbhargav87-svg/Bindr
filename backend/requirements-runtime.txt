@@ -2,3 +2,9 @@
 -r requirements-render.txt
 google-cloud-storage==3.17.1
 firebase-admin==7.8.0
+
+# Private connector credential custody (AES-GCM)
+cryptography==50.0.2
+
+# Generic verifier QR in private PDF reports
+qrcode[pil]==8.2
