@@ -1,0 +1,11 @@
+# Current integration sources checked by B
+
+Checked 15 November 2026. TinyFish tools were not available in the enabled tool inventory, so the available web tool was used. These are implementation references, not permission to activate providers, install an extension, file a grievance or send correspondence.
+
+- Chrome: [temporary activeTab access](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab) and [visible-tab capture API](https://developer.chrome.com/docs/extensions/reference/api/tabs#method-captureVisibleTab). The MV3 extension uses explicit popup buttons, `activeTab` and `scripting`, with no broad host/content-script/cookie access. Pairing remains disabled.
+- PWA: [Web Share Target](https://web.dev/articles/web-share-target). B uses POST multipart sharing; sensitive text is not put in URL query parameters. The client-bound service-worker handoff is memory-only/one-use and expires. Installed-device acceptance is still needed.
+- Gmail: [official scopes and sensitivity classifications](https://developers.google.com/workspace/gmail/api/auth/scopes). B has not selected scopes or enabled sending/reply access; A must define minimal provider-specific capabilities and production verification requirements first.
+- MSG: [upstream extractor](https://github.com/TeamMsgExtractor/msg-extractor) and [documented MSG bytes input](https://msg-extractor.readthedocs.io/en/latest/extract_msg/msg_classes/msg.html). The optional adapter never calls save/render-PDF methods or recursively opens embedded messages.
+- India consumer escalation: [National Consumer Helpline's official description](https://consumerhelpline.gov.in/public/about) identifies its pre-litigation grievance role; [e-Jagriti](https://e-jagriti.gov.in/) supplies official consumer commission information. The UI links to these current sources and asks the user to review eligibility/requirements. It does not invent legal deadlines, contacts, eligibility or guaranteed recovery.
+
+No jurisdiction-specific legal conclusion about call recording is asserted. Before a real audio integration is activated, the product must obtain the user's permission to upload/process the recording and supply the relevant reviewed jurisdiction/provider guidance. Existing-recording upload is separate from any live microphone feature; no live microphone capture was added.
