@@ -69,7 +69,7 @@ class Drawing:
   for e in self.elements[start:]:e['groupIds']=[group]
  def header(self,title,subtitle,number):
   self.text(60,30,title,64,width=2110);self.text(62,112,subtitle,30,color=MUTED,width=2150)
-  self.image(2280,40,46,60,ROOT/'assets/bindr.svg');self.text(2350,46,'bindr',38,width=140)
+  self.image(2280,40,46,60,ROOT/'assets/bindr.svg');self.text(2350,46,'indr.',38,width=140)
   self.text(2350,110,number,24,color=INDIGO,width=140)
  def finish(self,name):
   svg=f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{W}" height="{H}" viewBox="0 0 {W} {H}"><title>{html.escape(self.title)}</title><defs><style>@font-face{{font-family:Excalifont;src:url({FONT}) format("woff2");}}text{{font-family:Excalifont,"Comic Sans MS",sans-serif;}}</style><marker id="arrow" viewBox="0 0 16 16" refX="13" refY="8" markerWidth="12" markerHeight="12" orient="auto"><path d="M2 2 13 8 2 14" fill="none" stroke="{INK}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><rect width="{W}" height="{H}" fill="white"/>'+''.join(self.svg)+'</svg>'
@@ -135,7 +135,7 @@ d.text(2200,216,'HTTPS',30,color=INDIGO,width=230)
 for x,w,fill in [(60,620,BLUE),(850,750,PURPLE),(1770,730,GREEN)]:d.box(x,350,w,360,fill)
 for name,x,size in [('react',90,54),('typescript',165,48),('vitejs',235,48),('tailwindcss',305,48)]:d.logo(name,x,373,size)
 d.text(90,445,'React + TypeScript',43,width=550)
-d.text(90,520,['Original UI (source)','v1 main / v2 separate tools','Account-bound draft recovery'],32,width=555)
+d.text(90,520,['Original UI + date picker','v1 main / v2 separate tools','Account-bound draft recovery'],32,width=555)
 d.logo('fastapi',880,373,54);d.logo('python',960,373,54);d.logo('firebase',1040,373,54)
 d.text(880,445,'FastAPI: v1 + v2',44,width=680)
 d.text(880,520,['Firebase + revocable SQL sessions','CSRF / versions / replay keys','Human review → atomic write'],32,width=680)

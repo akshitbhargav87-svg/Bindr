@@ -28,7 +28,7 @@ Companies promise refunds, replacements and service fixes across messages and do
 
 | Area | Current implementation and boundary |
 |---|---|
-| Original product UI | The original overview, case list, upload/paste, source-side review and case-detail components are restored in source. Their main data path remains `/api/v1`. The integration prototypes no longer replace these default screens. |
+| Original product UI | The original overview, case list, upload/paste, source-side review and case-detail components are restored in source. Subsequent polish adds the corrected wordmark, aligned labels, consistent settings typography, a shared date-only calendar and reduced-motion-aware feedback. Their main data path remains `/api/v1`. The integration prototypes no longer replace these default screens. |
 | Accounts | Firebase verified identity, Google/email sign-in, reset and optional MFA; revocable SQL sessions, HttpOnly cookies and CSRF/account checks. Real reset/reuse/MFA, cross-device recovery and isolation acceptance remain open. |
 | AI and review | Explicit v1/v2 adapters; bounded all-candidate structured extraction, quote/schema/money validation, conditional/revision relationships and typed failures. The real Meta key reference exists in the cloud configuration. The ten canonical inputs plus dated 1B have not passed fresh real-Meta acceptance. No silent model-error-to-mock fallback. |
 | OCR and imports | PNG/JPEG RapidOCR, plain text and text-layer PDF processing. Mixed/scanned-PDF, EML/MIME, MSG and audio/segment adapters have partial independent implementations; their dispatch, optional dependencies, transcription provider and multilingual quality are not fully accepted. |
@@ -47,7 +47,7 @@ The normal routes `/app`, `/app/cases`, `/app/upload`, `/app/review` and `/app/c
 - `/app/tools/capture-v2`
 - `/app/cases/:caseId/workflow`
 
-`/app/capture-v2` now opens the original capture screen. `VITE_ENABLE_V2_CAPTURE=true` enables relevant data/tool features at build time; it no longer swaps the normal overview/capture screens for the integration prototypes. Legacy amounts and receipts are not invented or silently merged into v2 totals. Completing that connection **must preserve the original UI**. See [the restoration record](docs/intelligence/ORIGINAL_UI_RESTORATION.md).
+`/app/capture-v2` now opens the original capture screen. `VITE_ENABLE_V2_CAPTURE=true` enables relevant data/tool features at build time; it no longer swaps the normal overview/capture screens for the integration prototypes. Legacy amounts and receipts are not invented or silently merged into v2 totals. Completing that connection **must preserve the original UI**. See [the restoration record](docs/intelligence/ORIGINAL_UI_RESTORATION.md) and [subsequent UI polish](docs/intelligence/UI_POLISH_2026-11-15.md). A selected calendar day remains `YYYY-MM-DD`; the picker itself does not invent a deadline time.
 
 ## Architecture
 
