@@ -84,13 +84,26 @@ class AIModuleAdapter:
         """
         from backend.app.services.intelligence.extraction import ProposalEngine
         from backend.app.ai.proposals import StructuredProposalProvider
+        platform_request = request if isinstance(request, dict) and 'context' in request else None
+        if platform_request is not None:
+            from backend.app.services.intelligence.platform_profile import extraction_request
+            request = extraction_request(platform_request)
         if provider is None:
             adapter = self
             class ConfiguredProvider:
                 def extract_proposals(self, payload, timeout):
                     return StructuredProposalProvider(adapter._get_engine().provider).extract_proposals(payload, timeout)
             provider = ConfiguredProvider()
-        return ProposalEngine(provider).extract(request, diagnostics)
+        result = ProposalEngine(provider).extract(request, diagnostics)
+        if platform_request is not None:
+            from backend.app.services.intelligence.platform_profile import extraction_response
+            return extraction_response(result, platform_request)
+        return result
+
+    def answer_case_v2(self, request):
+        """Answer only from A's already authorized bounded source snapshot."""
+        from backend.app.services.intelligence.platform_profile import answer_request
+        return answer_request(request)
 
     def _get_engine(self):
         """
