@@ -2,6 +2,8 @@
 
 FastAPI provides browser sessions, owned cases, private evidence, Meta extraction, reviewed promises, revisions and full resolution. Run the commands below from the **repository root**, using Python 3.12+.
 
+The combined branch also includes Firebase account sessions and the separate v2 ledger, extraction/review, outcomes, private exports, requested deletion and durable jobs. The original frontend still uses v1 for its main capture/review flow; v2 tools do not silently reinterpret legacy facts. See [the published v2 packet](../docs/platform/API_V2_PACKET.md), [operations](../docs/platform/OPERATIONS.md) and [current integration status](../docs/intelligence/COMBINED_MVP_STATUS.md). Earlier live acceptance belongs to its recorded image, not this combined source.
+
 ## Install and run locally
 
 Bash (macOS/Linux):
@@ -69,4 +71,4 @@ The regression runner isolates storage/database configuration and supplies a tes
 | Preview a factual complaint | `POST /api/v1/cases/{case_id}/complaint-draft` |
 | Confirm full resolution | `POST /api/v1/cases/{case_id}/resolve` |
 
-State-changing cookie requests require the matching CSRF token and permitted origin; case writes require the current case version. Original files stay private, and suggestions do not become commitments before review. Partial receipts, account recovery and other limitations remain documented in the [root README](../README.md). For the existing Google service, follow the [update instructions](../docs/DEPLOYMENT_GOOGLE_CLOUD.md), preserving the database, bucket and secrets.
+State-changing cookie requests require the matching CSRF token, permitted origin and expected account; case writes require the current case version. V2 mutations additionally require stable account/operation-scoped idempotency keys. Original files stay private, and suggestions do not become commitments before review. V2 partial receipts and privacy/recovery acceptance limits are documented in the [root README](../README.md). Deployed startup checks schema revision 11; migration is an explicit operation. The maintenance worker is separately scheduled and does not enable optional external sends. For the existing Google service, follow the [update instructions](../docs/DEPLOYMENT_GOOGLE_CLOUD.md), preserving the database, bucket and secrets.

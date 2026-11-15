@@ -3,6 +3,10 @@ on:
   push:
     branches: [main, release/hackathon-live]
   pull_request:
+  workflow_dispatch:
+concurrency:
+  group: bindr-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   integration:
     runs-on: ubuntu-latest
@@ -20,6 +24,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
+      ENVIRONMENT: development
+      AUTH_PROVIDER: anonymous
       BINDR_TEST_DATABASE_URL: postgresql+psycopg://bindr_test:bindr_ci_test_only@127.0.0.1:5432/bindr_platform_test
       AI_PROVIDER: mock
       OCR_MODEL_DIR: ${{ github.workspace }}/.ocr-models
@@ -38,6 +44,7 @@ jobs:
         run: |
           bash -n scripts/deploy-google-cloud.sh
           sh -n scripts/start.sh
+          python -m py_compile scripts/release_existing_google_cloud.py scripts/release_frontend_hotfix.py scripts/platform_worker.py scripts/migrate_platform.py
       - name: Cache OCR weights
         uses: actions/cache@v4
         with:
@@ -55,11 +62,15 @@ jobs:
         working-directory: frontend
       - run: npm run check
         working-directory: frontend
+      - name: Track B frontend contracts and recovery
+        run: npm run check:track-b
+        working-directory: frontend
       - run: npm run build
         working-directory: frontend
         env:
           VITE_USE_MOCK: 'false'
           VITE_API_URL: /api/v1
+          VITE_ENABLE_V2_CAPTURE: 'true'
       - name: Real frontend adapter against FastAPI
         run: |
           uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 &

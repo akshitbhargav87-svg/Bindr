@@ -46,3 +46,17 @@ See [AUTHENTICATION.md](AUTHENTICATION.md) for owner setup and acceptance. Deplo
 | AUTH_SECRET | Existing random server secret for session-bound CSRF and legacy-workspace attachment; keep it during migration |
 
 The Cloud Run service identity needs `firebaseauth.users.get` and `firebaseauth.users.update`; the owner setup script creates the narrow runtime role. Never ship a service-account private key, password or provider refresh token in frontend configuration. Emulator auth is forbidden in deployed environments.
+
+## Public frontend build configuration
+
+| Variable | Meaning |
+|---|---|
+| `VITE_USE_MOCK` | Exactly `false` selects HTTP clients; otherwise the standalone frontend uses demo adapters. The Docker builds explicitly select HTTP. |
+| `VITE_API_URL` | Public v1 API base: `/api/v1` for the combined same-origin app. For separate local Vite/API development, supply the backend origin/API path and configure exact CORS/CSRF origins. There is no Vite API proxy. |
+| `VITE_ENABLE_V2_CAPTURE` | `true` enables the relevant v2 data/tool paths and account capture-draft autosave. It does not replace original overview/capture screens or finish their v2 integration. Docker and CI use `true`. |
+
+These values are compiled into browser assets. Never put model, signing, database or provider secrets in them. The date picker emits a date-only value; it does not define an automatic server deadline time.
+
+## V2 platform operations
+
+[Platform operations](platform/OPERATIONS.md) is the canonical reference for connector credentials, provider activation flags, encrypted credential custody, notifications, timestamp authorities, retention, migrations and the maintenance worker. The current worker deployment uses `--maintenance-only`; optional Gmail/notification/push sends remain disabled. Schema migrations are explicit; application/worker startup does not silently migrate a deployed database.

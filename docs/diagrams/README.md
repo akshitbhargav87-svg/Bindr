@@ -38,12 +38,12 @@ The previous 14 November presentation pack is preserved in the workspace archive
 Install Python with Playwright and Pillow, plus local Chrome. The font and SVG logos are already included; building does not fetch assets or require the application server.
 
 ```bash
-python build.py
-python render.py
-python package.py
+python docs/diagrams/build.py
+python docs/diagrams/render.py
+python docs/diagrams/package.py
 ```
 
-From the parent workspace, prefix each script with `bindr-flowcharts/`. Set `BINDR_CHROME_EXECUTABLE` if Chrome is outside a standard location. Rendering waits for the embedded font and checks label widths before exporting. Packaging refreshes both PDF names and, in the standalone workspace, the existing `bindr-flowcharts.zip` and `bindr-flowcharts-16x9.zip` names.
+These commands run from the repository root. For the standalone distribution, run `build.py`, `render.py` and `package.py` inside its `bindr-flowcharts` directory. Set `BINDR_CHROME_EXECUTABLE` if Chrome is outside a standard location. Rendering waits for the embedded font and checks label widths before exporting. Packaging refreshes the ZIP names only in the standalone workspace; the repository retains the editable sources and both PDF names without committing distribution archives.
 
 The repository keeps a synchronized copy under `docs/diagrams/`, with compact PNG copies under `docs/images/` for the main README. Application UI/runtime files are unchanged by this documentation update.
 

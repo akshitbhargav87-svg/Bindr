@@ -1,74 +1,66 @@
 # Bindr frontend
 
-The frontend implements the landing, workspace, capture/review, source-linked case timeline, outcomes, complaint drafting, agenda, activity and settings. It uses one Nunito/Inter design system with #3D4DD6, white/cool-grey surfaces, 1px borders and no shadows.
+React 19, TypeScript and Vite implement the original landing, overview, case list, upload/paste, side-by-side review, case timeline, complaint drafting, agenda and Settings. The design uses Nunito headings, Inter body text and the shared indigo/white workspace components. The latest refinements add the corrected wordmark, uniform account typography, aligned field labels, a date-only calendar and reduced-motion-aware feedback.
 
-Default mode is a deterministic local demo. Supported HTTP flows are wired and transport-tested; testing against the real backend is pending because localhost:8000 was unavailable. Read INTEGRATION-HANDOVER.md and GAPS.md before switching modes. Historical per-phase handovers document earlier checkpoints; PHASE-6-7-HANDOVER.md is the current completion record.
+The [root README](../README.md) and [current integration status](../docs/intelligence/COMBINED_MVP_STATUS.md) describe current source and known limits. Earlier `PHASE-*`, `GAPS.md` and handover documents are historical implementation snapshots, not current launch acceptance.
 
-## Run in Command Prompt
+## Start the standalone demo
 
-From a fresh Command Prompt:
+From a repository checkout:
 
-```cmd
-cd /d "C:\Users\Test\OneDrive\Documents\ChatGPT\PromiseKeeper - VIHAANX\bindr-app\frontend"
+```text
+cd frontend
+npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. This checkout already has dependencies; use npm ci for a fresh installation. No .env is needed for demo mode.
+Open the Vite URL printed in the terminal, normally `http://localhost:5173`. Demo mode is the default when `VITE_USE_MOCK` is not exactly `false`. It uses synthetic in-memory data and does not prove real AI, account access or persistence. No secret belongs in a `VITE_` variable.
+
+## Connected app
+
+The deployed Docker image builds with:
+
+```text
+VITE_USE_MOCK=false
+VITE_API_URL=/api/v1
+VITE_ENABLE_V2_CAPTURE=true
+```
+
+Use the [root local-run instructions](../README.md#run-locally) to build the frontend and serve it with FastAPI from one origin. For separate Vite/API development, configure the public `VITE_API_URL` to the backend's `/api/v1` URL and use matching hostnames with the server's exact CORS/CSRF allowlist. The Vite config does not define an API proxy. A bare `.env` file is not a backend configuration loader.
+
+`VITE_ENABLE_V2_CAPTURE` enables the relevant data/tool paths and account draft autosave. It **does not replace the original product screens**. Their main capture/review data path is still v1; wiring the v2 ledger into these components remains unfinished. The standalone v2 tools use the explicit `PlatformClient` adapter for Track A's published wire profile. Fixtures are test-only; application code does not silently switch a failed HTTP/model request to demo data.
 
 ## Routes
 
-| Route | Purpose |
+| Route | Screen/data boundary |
 |---|---|
-| / | Approved marketing landing |
-| /app | Introduction / overview |
-| /app/cases | Searchable, filterable cases |
-| /app/cases/:caseId | Case, preserved promise history and original evidence |
-| /app/cases/:caseId/update | Match a communication, review a new/revised promise, or retain evidence |
-| /app/upload; /app/review | Capture and explicit confirmation |
-| /app/evidence | Searchable original-evidence index and viewer |
-| /app/cases/:caseId/complaint | Facts → Draft → Review → Export |
-| /app/drafts | Tab-local saved complaints |
-| /app/agenda; /app/activity | Deadline agenda and local activity/read markers |
-| /app/settings; /app/help | Calendar assumptions, real in-app preferences and guidance |
-| /app/archived | Mock archive/restore view |
+| `/` | Landing page |
+| `/login`, `/register`, `/forgot-password`, `/auth/action` | Firebase-backed account screens and action-link handling |
+| `/app`, `/app/cases` | Original overview and searchable case list, v1 facts |
+| `/app/upload`, `/app/review`, `/app/capture-v2` | Original styled capture and explicit review, v1 adapter |
+| `/app/cases/:caseId`, `/app/cases/:caseId/update` | Original source-linked case detail and communication/revision review |
+| `/app/evidence`, `/app/drafts` | Evidence library and complaint drafts |
+| `/app/agenda`, `/app/activity`, `/app/settings`, `/app/help` | Deadlines, activity, preferences/account security and help |
+| `/app/cases/:caseId/workflow` | Separate v2 receipt, revision, answer, export and deletion workflow |
+| `/app/tools/workspace-v2`, `/app/tools/capture-v2` | Separate v2 integration views; not default sidebar screens |
+| `/app/share` | Shared-content review before capture; installation/browser support required |
 
-Desktop sidebar and written four-tab mobile navigation share the same pages. Mobile secondary links expose Deadlines, Activity and Drafts. User visual/device review remains necessary; route response checks do not certify rendering.
+Main v1 amounts are not silently combined with separately saved v2 obligations. Unsupported lifecycle/provider actions remain explicitly unavailable. The date picker returns `YYYY-MM-DD`; deadline interpretation remains a separate reviewed operation.
 
-## Commands
+## Commands and evidence
 
-```cmd
+```text
 npm run typecheck
 npm run check
+npm run check:track-b
 npm run build
 npm run build:http
 ```
 
-check runs 55 focused tests, including a temporary loopback HTTP contract server that closes afterward. build outputs the default demo to dist. build:http forces VITE_USE_MOCK=false and outputs to dist-http, leaving the demo configuration/output alone. Both generated folders are ignored. No dependencies were added in Phases 2–7.
+`check` covers the original frontend/account adapters and UI regressions. `check:track-b` covers the independent v2 transport, recovery and source/security fixtures. These do not prove real-browser/provider acceptance. A connected build must explicitly set the public flags above; an unconfigured local `build` uses demo mode. `build:http` forces HTTP mode and writes `dist-http`; regular `build` writes `dist`. Dependencies and generated outputs are ignored by Git.
 
-## Demo and connected data
+Read the [UI incident](../docs/intelligence/FRONTEND_INCIDENT_2026-11-15.md), [original-screen restoration](../docs/intelligence/ORIGINAL_UI_RESTORATION.md), [UI refinements](../docs/intelligence/UI_POLISH_2026-11-15.md) and [deployment record](../docs/intelligence/CLOUD_V2_UPDATE.md) for the exact verification boundaries. Historical passing counts are not a fresh green run of the latest source.
 
-Demo cases, originals, outcomes and annotations live in memory until reload. The fixed reference date is 14 Nov 2026 in the mock adapter only. Screenshot/PDF originals can be viewed/kept and entered manually; local extraction reads UTF-8 text, not OCR. The Demo workspace menu identifies fixtures and exposes empty/offline/error states.
+## Deployment
 
-Capture and complaint state survive workspace/public navigation within this app session. Saved complaints are explicit copies for this tab only. Reload warnings protect local work. Only introduction/demo-view preferences and two in-app preference booleans use localStorage; original files, document content and activity read-marker IDs do not.
-
-HTTP uses VITE_USE_MOCK=false and public VITE_API_URL (default http://localhost:8000; /api/v1 is appended unless already supplied). VITE_API_URL maps the shared logical FRONTEND_API_BASE_URL setting and may also be /api/v1 for same-origin hosting. Backend session bootstrap, cookie credentials, CSRF and exact CORS origin must be supplied by the backend owner. Match browser/API hostnames. No backend or AI secrets belong in frontend variables.
-
-HTTP supports UTF-8 text/text-layer PDF, create/read/upload/extract/review/revision/full resolution/complaint preview/original download. Unsupported features remain isolated local extensions or are blocked; see GAPS.md. HTTP errors never fall back to sample data, and POST requests are never automatically retried.
-
-Complaint export is reviewed plain text: clipboard or local UTF-8 .txt, optional history and filename index. No PDF, bundled originals, automatic filing, external notifications or background scheduler is included.
-
-## Integration and hosting
-
-INTEGRATION-HANDOVER.md gives exact commands for a second connected frontend on port 5174, backend prerequisites, tested transport boundaries and the pending real-server verification path. No backend code, shared contracts or root configuration was modified.
-
-Render Static Site: root frontend, build npm ci && npm run build, publish dist. Set public variables before building. Configure an explicit Rewrite from /* to /index.html for BrowserRouter deep links. public/_redirects is included but does not replace Render's dashboard rewrite. No deployment was performed.
-
-## Ownership and manual commit
-
-All implementation changes are inside frontend/. Reference docs/ stays untracked/read-only. Research screenshots remain outside the repo; ASSETS.md records existing landing asset provenance. The assistant performs no Git writes.
-
-Suggested final commit: feat(frontend): finish agenda preferences and API integration checks
-
-Exact staging command from the repository root: git add -- frontend/
-
-See PHASE-6-7-HANDOVER.md for the complete fresh-CMD commit/push/verification sequence. Copy command lines only, without Markdown formatting markers.
+Google Cloud is the current target. [Existing-service rollout](../docs/intelligence/CLOUD_V2_UPDATE.md) handles schema/worker requirements; `scripts/release_frontend_hotfix.py` handles frontend-only replacement over an existing immutable backend image. Git pushes and PR merges do not automatically deploy. The previous Render hosting notes are historical.

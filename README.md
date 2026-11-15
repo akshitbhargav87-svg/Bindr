@@ -4,6 +4,8 @@
 
 [Deployment URL](https://bindr-tor2633xpq-el.a.run.app) · [Editable flowcharts](docs/diagrams/README.md) · [Integration status](docs/intelligence/COMBINED_MVP_STATUS.md)
 
+**Branch status:** the latest account/platform work, original-UI restoration, UI refinements and editable diagrams are on [`codex/qa-integration`](https://github.com/akshitbhargav87-svg/Bindr/tree/codex/qa-integration). The last audited `main` is the earlier `893b804` release; it does not contain these updates until the integration PR is merged. A Git merge does not deploy the website. See the [repository audit](docs/REPOSITORY_AUDIT_2026-11-15.md) and [documentation index](docs/README.md).
+
 Companies promise refunds, replacements and service fixes across messages and documents. When dates change, the proof gets scattered. Bindr keeps the original communication, reviewed promises, revisions and actual outcomes together.
 
 > **Current status — 15 November 2026:** implementation and integration are in progress. The v2 backend, AI adapter and separate React tools have been connected locally. A Google Cloud cutover was recorded, followed by a browser-request fix and restoration of the original UI in source. The restoration's live deployment and the requested traffic rollback have not been confirmed. The full roadmap, real-model acceptance and live account/privacy checks are **not complete**. Earlier release reports describe their own revisions, not acceptance of this branch.
